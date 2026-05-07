@@ -1,0 +1,8 @@
+{
+  "appName": "node Template",
+  "appNamePascal": "NodeTemplate",
+  "dbPort": "5450",
+  "nodePort": "8100",
+  "databaseUrl": "postgresql://postgres:example@localhost:5450/postgres",
+  "setupDate": "2025-10-25T19:06:27.553Z"
+}

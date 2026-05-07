@@ -1,0 +1,778 @@
+// AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
+// Generated at: 2026-05-04T18:32:45.342Z
+// Run `npm run types:generate` to regenerate this file
+
+// ============================================================================
+// ENUMS & LITERAL TYPES
+// ============================================================================
+
+export type AppSettingsType = 'string' | 'number' | 'boolean' | 'json' | 'select';
+export type WebhookStatus = 'pending' | 'processed' | 'failed' | 'skipped';
+export type AppLogLevel = 'info' | 'warn' | 'error' | 'debug' | 'fatal' | 'critical';
+export type RoleAssignmentStatus = 'active' | 'expired' | 'revoked';
+export type EntitlementSyncType = 'role' | 'area';
+export type EntitlementSyncOperation = 'assign' | 'update' | 'revoke' | 'state_check';
+export type WorkflowQueueStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'canceled';
+export type WorkflowCreatedBy = 'user' | 'system';
+export type CreditConsumptionStatus = 'pending' | 'synced' | 'failed';
+
+// ============================================================================
+// BASE APP TYPES (schema.ts)
+// ============================================================================
+
+export type NodeTemplateUser = {
+  id: number;
+  externalUserId: string | null;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  /** direct-auth fields (null in williams-mode) */
+  passwordHash: string | null;
+  name: string | null;
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type UserInsert = {
+  externalUserId?: string | null;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  /** direct-auth fields (null in williams-mode) */
+  passwordHash?: string | null;
+  name?: string | null;
+  emailVerifiedAt?: Date | null;
+  createdAt: Date;
+  updatedAt?: Date | null;
+};
+
+export type NodeTemplateUserId = number;
+
+export type AuthRefreshToken = {
+  id: number;
+  userId: number;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  replacedByTokenHash: string | null;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: Date;
+};
+
+export type AuthRefreshTokenInsert = {
+  userId: number;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt?: Date | null;
+  replacedByTokenHash?: string | null;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  createdAt: Date;
+};
+
+export type AuthPushToken = {
+  id: number;
+  userId: number;
+  token: string;
+  platform: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AuthPushTokenInsert = {
+  userId: number;
+  token: string;
+  platform: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AuthEmailVerificationToken = {
+  id: number;
+  userId: number;
+  tokenHash: string;
+  email: string;
+  expiresAt: Date;
+  consumedAt: Date | null;
+  createdAt: Date;
+};
+
+export type AuthEmailVerificationTokenInsert = {
+  userId: number;
+  tokenHash: string;
+  email: string;
+  expiresAt: Date;
+  consumedAt?: Date | null;
+  createdAt: Date;
+};
+
+export type DirectAuthUser = {
+  id: number;
+  email: string | null;
+  name: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  emailVerified: boolean;
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type DirectAuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type DirectAuthResponse = {
+  user: DirectAuthUser;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type DirectAuthVerifyEmailResponse = {
+  ok: true;
+  user: DirectAuthUser;
+};
+
+export type DirectAuthRequestVerificationResponse = {
+  ok: true;
+  alreadyVerified?: boolean;
+};
+
+export type NodeTemplateUserActivity = {
+  userId: number;
+  activityDate: string;
+  /** Date of activity (YYYY-MM-DD) */
+  firstActivityAt: Date;
+  /** First request of the day */
+  lastActivityAt: Date;
+  /** Last request of the day (updated continuously) */
+  requestCount?: number;
+  /** Total requests this day */
+  requests?: any;
+  /** Array of request details (max 50, FIFO) */
+  createdAt: Date;
+  /** When this daily record was created */
+  updatedAt: Date;
+};
+
+export type NodeTemplateUserActivityId = number;
+
+export type AppSettings = {
+  key: string;
+  value: string;
+  allowedValues?: string | null;
+  /** Comma-separated list of allowed values (for enum-like settings) */
+  type: AppSettingsType;
+  description?: string | null;
+  createdAt: Date;
+};
+
+export type AppSettingsInsert = {
+  key: string;
+  value: string;
+  allowedValues?: string | null;
+  /** Comma-separated list of allowed values (for enum-like settings) */
+  type: AppSettingsType;
+  description?: string | null;
+  createdAt: Date;
+};
+
+export type AppSettingsId = number;
+
+export type AppLog = {
+  id: number;
+  level: AppLogLevel;
+  message: string;
+  context: any;
+  createdAt: Date;
+};
+
+export type AppLogId = number;
+
+export type Webhook = {
+  id: number;
+  provider: string;
+  /** z. B. "Stripe", "PayPal", "Printful" */
+  eventType: string;
+  externalId: string;
+  payload: any;
+  /** Raw payload as received from the provider */
+  processed: boolean;
+  status: WebhookStatus;
+  processMessage: string | null;
+  originUrl: string | null;
+  createdAt: Date;
+  processedAt: Date | null;
+  userAgent: string | null;
+  /** User-Agent Header */
+  signature: string | null;
+  /** Webhook signature für Verifizierung */
+  retryCount: number;
+  /** Anzahl der Retry-Versuche */
+  lastRetryAt: Date | null;
+};
+
+export type WebhookId = number;
+
+export type Permission = {
+  id: number;
+  name: string;
+  description: string | null;
+};
+
+export type PermissionId = number;
+
+export type Role = {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: Date;
+  isSellable: boolean;
+};
+
+export type RoleId = number;
+
+export type RolePermission = {
+  id: number;
+  roleId: number;
+  permissionId: number;
+  assignedBy: number;
+  revokedBy: number | null;
+  createdAt: Date;
+  validTo: Date | null;
+};
+
+export type RolePermissionId = number;
+
+export type RoleAssignment = {
+  id: number;
+  userId: number;
+  status: RoleAssignmentStatus;
+  roleId: number;
+  validFrom: Date;
+  validTo: Date | null;
+  assignedBy: number;
+  revokedBy: number | null;
+  createdAt: Date;
+};
+
+export type RoleAssignmentId = number;
+
+export type EntitlementSyncLink = {
+  id: number;
+  linkKey: string;
+  externalUserId: string;
+  externalIdentifier: string;
+  entitlementType: EntitlementSyncType;
+  userId: number | null;
+  roleId: number | null;
+  roleAssignmentId: number | null;
+  shopSyncVersion: string | null;
+  shopAssignmentId: string | null;
+  shopEntitlementId: string | null;
+  shopCustomerId: string | null;
+  shopOrderId: string | null;
+  shopOrderItemId: string | null;
+  sourceAppId: string | null;
+  sourceTargetAppId: string | null;
+  sourceClientId: string | null;
+  lastOperation: EntitlementSyncOperation | null;
+  isActive: boolean;
+  validFrom: Date | null;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  context: any;
+  createdAt: Date;
+  updatedAt: Date | null;
+  lastSeenAt: Date;
+};
+
+export type EntitlementSyncLinkId = number;
+
+export type UsageOverageEvent = {
+  id: number;
+  externalEventId: string;
+  sourceFingerprint: string;
+  externalUserId: string;
+  shopAssignmentId: string | null;
+  externalIdentifier: string;
+  entitlementType: EntitlementSyncType;
+  metricKey: string;
+  unit: string;
+  periodStart: Date;
+  periodEnd: Date;
+  occurredAt: Date;
+  includedQuantity: string;
+  usedQuantity: string;
+  overageQuantity: string;
+  overageAmount: string;
+  currency: string;
+  note: string | null;
+  pricingPayload: any;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type UsageOverageEventId = number;
+
+export type ShopLimitConfig = {
+  id: number;
+  externalUserId: string;
+  metricKey: string;
+  includedQuantity: string;
+  limitBehavior: string;
+  payAsYouGoActive: boolean;
+  maxOverageQuantity: string | null;
+  overagePricePerUnit: string | null;
+  lastSyncedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type ShopLimitConfigInsert = {
+  externalUserId: string;
+  metricKey: string;
+  includedQuantity?: string;
+  limitBehavior?: string;
+  payAsYouGoActive?: boolean;
+  maxOverageQuantity?: string | null;
+  overagePricePerUnit?: string | null;
+  lastSyncedAt?: Date | null;
+  createdAt: Date;
+  updatedAt?: Date | null;
+};
+
+export type ShopCreditBalance = {
+  id: number;
+  externalUserId: string;
+  metricKey: string;
+  totalRemaining: string;
+  localUsed: string;
+  lastShopSync: Date | null;
+  pools: any;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type ShopCreditBalanceInsert = {
+  externalUserId: string;
+  metricKey: string;
+  totalRemaining?: string;
+  localUsed?: string;
+  lastShopSync?: Date | null;
+  pools?: any;
+  createdAt: Date;
+  updatedAt?: Date | null;
+};
+
+export type CreditConsumptionQueueEntry = {
+  id: number;
+  externalUserId: string;
+  metricKey: string;
+  amount: string;
+  idempotencyKey: string;
+  status: CreditConsumptionStatus;
+  attempts: number;
+  shopResponse: any | null;
+  lastAttemptAt: Date | null;
+  createdAt: Date;
+};
+
+export type CreditConsumptionQueueInsert = {
+  externalUserId: string;
+  metricKey: string;
+  amount: string;
+  idempotencyKey: string;
+  status?: CreditConsumptionStatus;
+  attempts?: number;
+  shopResponse?: any | null;
+  lastAttemptAt?: Date | null;
+  createdAt: Date;
+};
+
+export type WorkflowQueue = {
+  id: string;
+  /** String format: WF_<timestamp>_<hash> */
+  workflowType: string;
+  payload: any;
+  status: WorkflowQueueStatus;
+  attemptCount: number;
+  lastAttemptAt: Date | null;
+  tasks: any;
+  /** Array of tasks with expected duration */
+  currentTask: number;
+  /** Current task being processed */
+  taskResults: any;
+  /** Array of task results/details (logs go here, so we can see everything..) */
+  createdAt: Date;
+  scheduledAt: Date | null;
+  updatedAt: Date | null;
+  priority: number;
+  /** Higher number = higher priority */
+  userId: number | null;
+  createdBy: WorkflowCreatedBy;
+  /** Abort & Cleanup System */
+  abortRequested: boolean;
+  /** User requested abort */
+  cleanupHandler: string | null;
+  /** Cleanup function identifier */
+  timeoutAt: Date | null;
+};
+
+export type WorkflowQueueId = string;
+
+export type QuickStats = {
+  lastActivity: string | null;
+  requestsToday: number;
+  requestsThisWeek: number;
+  requestsThisMonth: number;
+};
+
+export type UserWithStats = {
+  user: {
+    id: number;
+    externalUserId: string | null;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    createdAt: Date;
+    updatedAt: Date | null;
+  };
+  activityStats: QuickStats | null;
+};
+
+export type UserWithActivityOverview = {
+  user: {
+    id: number;
+    externalUserId: string | null;
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    createdAt: Date;
+    updatedAt: Date | null;
+  };
+  activityOverview: any;
+};
+
+export type PaginatedUsersWithActivityOverview = {
+  data: UserWithActivityOverview[];
+  pagination: {
+    page: number;
+    resultsPerPage: number;
+    totalPages: number;
+    totalResults: number;
+    availableStatusCodes: number[];
+  };
+};
+
+
+// ============================================================================
+// APP PERMISSIONS
+// ============================================================================
+
+export enum NodeTemplateAppPermissions {
+  UsersManage = "users_manage",
+  UsersView = "users_view",
+  SettingsEdit = "settings_edit",
+  PermissionsManage = "permissions_manage",
+  PermissionsHistoryView = "permissions_history_view",
+  RolesManage = "roles_manage",
+  RolesHistoryView = "roles_history_view",
+  WebhookView = "webhook_view",
+  WebhookDelete = "webhook_delete",
+  LogView = "log_view",
+  LogDelete = "log_delete"
+}
+
+export type NodeTemplateAppPermissionValue = (typeof NodeTemplateAppPermissions)[keyof typeof NodeTemplateAppPermissions];
+
+// ============================================================================
+// APP SETTINGS
+// ============================================================================
+
+// No settings defined
+
+
+
+// ============================================================================
+// SHARED UTILITY TYPES
+// ============================================================================
+
+export type Languages = "DE" | "EN";
+
+export type Prettify<T> = {
+  [K in keyof T]: T[K];
+};
+
+export type PaginatedResult<T> = {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};
+
+// ============================================================================
+// FEATURE TYPES (individual schema)
+// ============================================================================
+
+
+// ============================================================================
+// OAUTH2 TYPES
+// ============================================================================
+
+
+
+
+
+export type OAuth2Client = {
+  id: number;
+  /** Client identification */
+  clientId: string;
+  clientSecretHash: string;
+  clientSecretFingerprint: string;
+  /** HMAC-SHA256 */
+  pepperVersion: number;
+  /**
+   * For secret rotation
+   * Metadata
+   */
+  name: string;
+  /** e.g., "Production API Client" */
+  description: string | null;
+  /**
+   * e.g., "Main backend service for production"
+   * Tenant isolation (only used when OAUTH2_TENANT_CONFIG.enabled = true)
+   * Apps with tenants set the real ID; apps without get the default 0.
+   * FK constraint is added by app-specific migration, NOT in Drizzle schema (keeps file syncable).
+   */
+  managingCompanyId: number;
+  defaultCostCenter: number | null;
+  /** Default cost center for operations */
+  availableCostCenters: string | null;
+  /**
+   * JSON array of allowed cost center IDs (null = all)
+   * Access control
+   */
+  role: string;
+  /** viewer | editor | admin */
+  scopes: string | null;
+  /**
+   * JSON array: ["invoices:read", "invoices:write", "expenses:read"]
+   * Token settings
+   */
+  accessTokenTtl: number;
+  /** Seconds (1 hour default) */
+  refreshTokenTtl: number;
+  /** Seconds (30 days default) */
+  maxTokensPerClient: number;
+  /**
+   * Max concurrent refresh tokens
+   * Security
+   */
+  allowedIps: string | null;
+  /** JSON array of whitelisted IPs (null = any) */
+  allowedOrigins: string | null;
+  /** JSON array of whitelisted origins for CORS */
+  rateLimitPerMinute: number;
+  /** Requests per minute */
+  rateLimitPerHour: number;
+  /**
+   * Requests per hour
+   * Status
+   */
+  isActive: boolean;
+  revokedAt: Date | null;
+  validFrom: Date;
+  validTo: Date | null;
+  /**
+   * null = no expiry
+   * Audit
+   */
+  createdBy: number;
+  /** User ID who created this client */
+  createdAt: Date;
+  updatedAt: Date | null;
+  lastUsedAt: Date | null;
+};
+
+export type OAuth2ClientInsert = {
+  /** Client identification */
+  clientId: string;
+  clientSecretHash: string;
+  clientSecretFingerprint: string;
+  /** HMAC-SHA256 */
+  pepperVersion?: number;
+  /**
+   * For secret rotation
+   * Metadata
+   */
+  name: string;
+  /** e.g., "Production API Client" */
+  description?: string | null;
+  /**
+   * e.g., "Main backend service for production"
+   * Tenant isolation (only used when OAUTH2_TENANT_CONFIG.enabled = true)
+   * Apps with tenants set the real ID; apps without get the default 0.
+   * FK constraint is added by app-specific migration, NOT in Drizzle schema (keeps file syncable).
+   */
+  managingCompanyId?: number;
+  defaultCostCenter?: number | null;
+  /** Default cost center for operations */
+  availableCostCenters?: string | null;
+  /**
+   * JSON array of allowed cost center IDs (null = all)
+   * Access control
+   */
+  role?: string;
+  /** viewer | editor | admin */
+  scopes?: string | null;
+  /**
+   * JSON array: ["invoices:read", "invoices:write", "expenses:read"]
+   * Token settings
+   */
+  accessTokenTtl?: number;
+  /** Seconds (1 hour default) */
+  refreshTokenTtl?: number;
+  /** Seconds (30 days default) */
+  maxTokensPerClient?: number;
+  /**
+   * Max concurrent refresh tokens
+   * Security
+   */
+  allowedIps?: string | null;
+  /** JSON array of whitelisted IPs (null = any) */
+  allowedOrigins?: string | null;
+  /** JSON array of whitelisted origins for CORS */
+  rateLimitPerMinute?: number;
+  /** Requests per minute */
+  rateLimitPerHour?: number;
+  /**
+   * Requests per hour
+   * Status
+   */
+  isActive?: boolean;
+  revokedAt?: Date | null;
+  validFrom?: Date;
+  validTo?: Date | null;
+  /**
+   * null = no expiry
+   * Audit
+   */
+  createdBy: number;
+  /** User ID who created this client */
+  createdAt?: Date;
+  updatedAt?: Date | null;
+  lastUsedAt?: Date | null;
+};
+
+export type OAuth2ClientId = OAuth2Client["id"];
+
+export type OAuth2RefreshToken = {
+  id: number;
+  clientId: number;
+  /** Token identification */
+  tokenHash: string;
+  /** Argon2 hash of refresh token */
+  tokenFingerprint: string;
+  /** HMAC-SHA256 for fast lookup */
+  jti: string;
+  /**
+   * JWT ID (unique identifier)
+   * Metadata
+   */
+  scope: string | null;
+  /** Space-separated scopes granted to this token */
+  issuedAt: Date;
+  expiresAt: Date;
+  /** Security */
+  isRevoked: boolean;
+  revokedAt: Date | null;
+  revokedReason: string | null;
+  /** Tracking */
+  lastUsedAt: Date | null;
+  usageCount: number;
+  ipAddress: string | null;
+  /** IPv4 or IPv6 */
+  userAgent: string | null;
+};
+
+export type OAuth2RefreshTokenInsert = {
+  clientId: number;
+  /** Token identification */
+  tokenHash: string;
+  /** Argon2 hash of refresh token */
+  tokenFingerprint: string;
+  /** HMAC-SHA256 for fast lookup */
+  jti: string;
+  /**
+   * JWT ID (unique identifier)
+   * Metadata
+   */
+  scope?: string | null;
+  /** Space-separated scopes granted to this token */
+  issuedAt?: Date;
+  expiresAt: Date;
+  /** Security */
+  isRevoked?: boolean;
+  revokedAt?: Date | null;
+  revokedReason?: string | null;
+  /** Tracking */
+  lastUsedAt?: Date | null;
+  usageCount?: number;
+  ipAddress?: string | null;
+  /** IPv4 or IPv6 */
+  userAgent?: string | null;
+};
+
+export type OAuth2AuditLog = {
+  id: number;
+  clientId: number | null;
+  /** Request details */
+  grantType: string;
+  /** client_credentials | refresh_token */
+  scope: string | null;
+  /** Requested scope */
+  success: boolean;
+  errorCode: string | null;
+  /** invalid_client | invalid_grant | etc. */
+  errorDescription: string | null;
+  /** Security context */
+  ipAddress: string | null;
+  userAgent: string | null;
+  timestamp: Date;
+  /** Rate limiting metadata */
+  requestCount: number | null;
+  /** Requests in current window */
+  rateLimitExceeded: boolean;
+};
+
+export type OAuth2AuditLogInsert = {
+  clientId?: number | null;
+  /** Request details */
+  grantType: string;
+  /** client_credentials | refresh_token */
+  scope?: string | null;
+  /** Requested scope */
+  success: boolean;
+  errorCode?: string | null;
+  /** invalid_client | invalid_grant | etc. */
+  errorDescription?: string | null;
+  /** Security context */
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  timestamp?: Date;
+  /** Rate limiting metadata */
+  requestCount?: number | null;
+  /** Requests in current window */
+  rateLimitExceeded?: boolean;
+};
+
+export type UnsensitiveOAuth2Client = Omit<OAuth2Client, "clientSecretHash" | "clientSecretFingerprint" | "pepperVersion">;
+
+

@@ -1,0 +1,126 @@
+name: Notify Parent App on Template Update
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+jobs:
+  notify-parent:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Extract APP_ID from config
+        id: extract_app_id
+        run: |
+          set -euo pipefail
+          APP_ID=$(grep -o 'APP_ID = "[^"]*"' src/app.config.ts | sed 's/APP_ID = "\(.*\)"/\1/')
+          echo "app_id=$APP_ID" >> "$GITHUB_OUTPUT"
+          echo "Extracted APP_ID: $APP_ID"
+
+      - name: Notify Parent Application
+        env:
+          AMP_URL: ${{ secrets.AMP_URL }}
+          AMP_API_KEY: ${{ secrets.AMP_API_KEY }}
+          APP_ID: ${{ steps.extract_app_id.outputs.app_id }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${AMP_URL:-}" ]; then
+            echo "AMP_URL not configured, skipping notification"
+            exit 0
+          fi
+
+          if [ -z "${APP_ID:-}" ]; then
+            echo "Could not extract APP_ID from config"
+            exit 1
+          fi
+
+          ENDPOINT="${AMP_URL}/apps/git-push"
+
+          echo "🔧 Configuration:"
+          echo "  AMP_URL: $AMP_URL"
+          echo "  APP_ID: $APP_ID"
+          echo "  Repository: ${{ github.repository }}"
+          echo "  Commit SHA: ${{ github.sha }}"
+          echo "  Actor: ${{ github.actor }}"
+          echo "  Event: ${{ github.event_name }}"
+          echo ""
+          echo "📡 Sending update notification to: $ENDPOINT"
+
+          # Build fields depending on event type (push vs merged PR)
+          if [ "${{ github.event_name }}" = "push" ]; then
+            COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
+            AUTHOR_NAME="${{ github.event.head_commit.author.name }}"
+            EMAIL="${{ github.event.head_commit.author.email }}"
+            TIMESTAMP="${{ github.event.head_commit.timestamp }}"
+            PUSHER="${{ github.actor }}"
+          else
+            # pull_request closed + merged
+            COMMIT_MESSAGE="${{ github.event.pull_request.title }}"
+            AUTHOR_NAME="${{ github.event.pull_request.user.login }}"
+            EMAIL="${{ github.event.pull_request.user.login }}@users.noreply.github.com"
+            TIMESTAMP="${{ github.event.pull_request.merged_at }}"
+            PUSHER="${{ github.actor }}"
+          fi
+
+          # Fallbacks to satisfy schema (no empty strings)
+          COMMIT_MESSAGE="${COMMIT_MESSAGE:-"Template update"}"
+          AUTHOR_NAME="${AUTHOR_NAME:-"${{ github.actor }}"}"
+          EMAIL="${EMAIL:-"${{ github.actor }}@users.noreply.github.com"}"
+          TIMESTAMP="${TIMESTAMP:-"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}"
+
+          # NOTE: Backend schema expects "email" (NOT "authorEmail")
+          PAYLOAD=$(cat <<JSON
+          {
+            "appId": "${APP_ID}",
+            "commitSha": "${{ github.sha }}",
+            "commitMessage": "$(printf '%s' "$COMMIT_MESSAGE" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])')",
+            "timestamp": "${TIMESTAMP}",
+            "authorName": "$(printf '%s' "$AUTHOR_NAME" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read())[1:-1])')",
+            "email": "${EMAIL}",
+            "pusher": "${PUSHER}",
+            "templateRepo": "${{ github.repository }}"
+          }
+          JSON
+          )
+
+          echo ""
+          echo "🧾 Payload preview (safe):"
+          echo "  appId: $APP_ID"
+          echo "  commitSha: ${{ github.sha }}"
+          echo "  pusher: $PUSHER"
+          echo "  templateRepo: ${{ github.repository }}"
+          echo "  timestamp: $TIMESTAMP"
+          echo ""
+
+          RESPONSE=$(curl -sS -w "%{http_code}" -X POST "$ENDPOINT" \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: $AMP_API_KEY" \
+            --data "$PAYLOAD")
+
+          HTTP_CODE="${RESPONSE: -3}"
+          BODY="${RESPONSE%???}"
+
+          echo "📊 Response Details:"
+          echo "  HTTP Status: $HTTP_CODE"
+          echo "  Response Body: $BODY"
+          echo ""
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Successfully notified parent application!"
+          else
+            echo "❌ Failed to notify parent application (HTTP $HTTP_CODE)"
+            exit 1
+          fi

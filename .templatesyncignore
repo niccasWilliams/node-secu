@@ -1,0 +1,48 @@
+# Template Sync Ignore File
+# Files und Ordner die NICHT vom Template überschrieben werden sollen
+
+# Build & Dependencies
+drizzle/*
+node_modules/*
+dist/*
+pnpm-lock.yaml
+package-lock.json
+drizzle.config.ts
+docker-compose.yml
+
+
+# Environment & Config
+.env
+.env.local
+.env.development.local
+.env.production.local
+src/app.config.ts
+
+# Documentation
+README.md
+
+# Generated Files
+frontend-types.ts
+.setup-config.json
+
+# Database - Individual
+src/db/individual/*
+
+
+# Routes - Individual
+src/individual-routes.ts
+src/routes/webhooks/individual-webhooks.ts
+src/routes/settings/individual-settings.ts
+src/routes/auth/roles/permissions/individual-permissions.ts
+
+# Entitlements - Individual (app-specific metrics, plans, hierarchy)
+src/lib/entitlements/individual/*
+
+# Utilities - Individual (app-specific tenant utils)
+src/util/individual/*
+
+# OAuth2 - Individual (app-specific scopes, tenant config)
+src/routes/oauth2/individual/*
+
+# Public Assets (falls vorhanden)
+public/*

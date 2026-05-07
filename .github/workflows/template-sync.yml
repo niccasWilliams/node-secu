@@ -1,0 +1,72 @@
+name: Sync from template
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.TEMPLATE_SYNC_TOKEN }}
+
+      - name: Sync from template
+        uses: AndreasAugustin/actions-template-sync@v2
+        with:
+          source_repo_path: niccasWilliams/node-template
+          source_gh_token: ${{ secrets.TEMPLATE_SYNC_TOKEN }}
+          target_gh_token: ${{ secrets.TEMPLATE_SYNC_TOKEN }}
+          upstream_branch: main
+          pr_title: "chore(template): sync from node-template"
+          pr_branch_name_prefix: "chore/template-sync-"
+          pr_labels: "template_sync"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore app-specific config
+        id: post_sync_fix
+        run: |
+          if [ -f ".setup-config.json" ]; then
+            echo "📝 Running post-sync fix..."
+            pnpm run post-sync-fix
+            echo "✅ App-specific config restored"
+            echo "config_restored=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  No .setup-config.json found, skipping post-sync fix"
+            echo "config_restored=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit restored config
+        if: steps.post_sync_fix.outputs.config_restored == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are changes
+          if [ -n "$(git status --porcelain)" ]; then
+            git add package.json docker-compose.yml drizzle.config.ts .env 2>/dev/null || true
+            git commit -m "chore: restore app-specific config after template sync" || true
+
+            # Push to the sync branch (not main)
+            BRANCH_NAME=$(git branch --show-current)
+            git push origin $BRANCH_NAME || true
+          fi
