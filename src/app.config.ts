@@ -5,7 +5,7 @@
 import { Languages } from "@/types/types";
 
 export const IS_LIVE = false;
-export const APP_ID = "node-template";
+export const APP_ID = "node-secu";
 export const S3_BASE_PATH = `apps/${APP_ID}`;
 
 // BRANDING

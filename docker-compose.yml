@@ -1,11 +1,11 @@
 version: "3.9"
 services:
-  node-template:
+  node-secu:
     image: postgres
     restart: always
-    container_name: node-template-database
+    container_name: node-secu-database
     ports:
-      - 5450:5432
+      - 5454:5432
     environment:
       POSTGRES_PASSWORD: example
       PGDATA: /data/postgres
