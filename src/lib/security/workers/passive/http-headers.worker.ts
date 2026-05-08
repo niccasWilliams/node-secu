@@ -14,15 +14,17 @@ export const httpHeadersWorker: SecurityWorker = {
     description: "Security-Header: CSP, HSTS, X-Frame-Options, Permissions-Policy. Tech-Detection via Server-Header.",
     defaultTimeoutMs: 15_000,
 
-    isApplicable(asset) {
-        return asset.kind === "domain" || asset.kind === "subdomain" || asset.kind === "url";
+    isApplicable(target) {
+        return target.kind === "asset_domain" || target.kind === "asset_subdomain"
+            || target.kind === "asset_url" || target.kind === "domain"
+            || target.kind === "subdomain" || target.kind === "url";
     },
 
     async run(ctx: WorkerContext): Promise<WorkerResult> {
         const start = Date.now();
         const findings: FindingDraft[] = [];
         const tech: TechDraft[] = [];
-        const url = toHttpsUrl(ctx.asset.value);
+        const url = toHttpsUrl(ctx.target.value);
 
         try {
             const controller = new AbortController();

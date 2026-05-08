@@ -1,27 +1,39 @@
 // Worker-Registry — zentrale Registrierung aller Scan-Worker.
-// Jeder Worker registriert sich mit einem WorkerJobKey. Der Orchestrator
-// fragt die Registry: "welche Worker laufen für scanType X auf asset Y?".
+//
+// Phase 0: drei lokale passive Worker (DNS/TLS/HTTP-Header).
+// Phase 2: + subdomain_passive (CT-Logs) + wp_passive_check; Registry hat nun
+// eine `registerWorker()`-Funktion, damit Bootstrap-Code (oder spätere Plugins)
+// dynamisch registrieren kann, ohne diese Datei anfassen zu müssen.
 
-import type { SecurityWorker, WorkerJobKey } from "./worker.types";
-import type { Asset } from "@/db/individual/individual-schema";
+import type { SecurityWorker, WorkerJobKey, WorkerTarget } from "./worker.types";
 
 import { dnsRecordsWorker } from "./passive/dns-records.worker";
 import { tlsCertWorker } from "./passive/tls-cert.worker";
 import { httpHeadersWorker } from "./passive/http-headers.worker";
-// PHASE 2: import { nucleiWorker } from "./active/nuclei.worker";
-// PHASE 2: import { nmapWorker } from "./active/nmap.worker";
-// PHASE 3: import { sqlmapWorker } from "./active/sqlmap.worker";
-// PHASE 3: import { hydraWorker } from "./active/hydra.worker";
+import { subdomainPassiveWorker } from "./passive/subdomain-passive.worker";
+import { wpPassiveCheckWorker } from "./passive/wp-passive-check.worker";
 
-const WORKERS: SecurityWorker[] = [
+const REGISTRY = new Map<WorkerJobKey, SecurityWorker>();
+
+const BUILTIN_WORKERS: SecurityWorker[] = [
     dnsRecordsWorker,
     tlsCertWorker,
     httpHeadersWorker,
+    subdomainPassiveWorker,
+    wpPassiveCheckWorker,
 ];
 
-const REGISTRY = new Map<WorkerJobKey, SecurityWorker>();
-for (const w of WORKERS) {
+for (const w of BUILTIN_WORKERS) {
     REGISTRY.set(w.jobKey, w);
+}
+
+/**
+ * Registriert (oder überschreibt) einen Worker. Wird aktuell intern für die
+ * Built-in-Worker genutzt; offen exportiert, damit zukünftige Plugin-Bootstraps
+ * die Registry erweitern können, ohne Source-Patches.
+ */
+export function registerWorker(worker: SecurityWorker): void {
+    REGISTRY.set(worker.jobKey, worker);
 }
 
 export function getWorker(jobKey: WorkerJobKey): SecurityWorker | undefined {
@@ -32,27 +44,7 @@ export function listWorkers(): SecurityWorker[] {
     return [...REGISTRY.values()];
 }
 
-/** Liefert die Worker, die für den gegebenen Scan-Type ausgeführt werden sollen. */
-export function workersForScanType(
-    scanType: "passive_quick" | "passive_full" | "active_safe" | "active_intrusive" | "cve_match" | "monitor_diff",
-    asset: Asset,
-): SecurityWorker[] {
-    const eligible = listWorkers().filter((w) => w.isApplicable(asset));
-    switch (scanType) {
-        case "passive_quick":
-            return eligible.filter((w) => ["dns_records", "tls_cert", "http_headers"].includes(w.jobKey));
-        case "passive_full":
-            return eligible.filter((w) => w.requiredScope === "passive_only");
-        case "active_safe":
-            return eligible.filter((w) => w.requiredScope === "passive_only" || w.requiredScope === "active_safe");
-        case "active_intrusive":
-            return eligible;  // alles
-        case "monitor_diff":
-            return eligible.filter((w) => w.requiredScope === "passive_only");
-        case "cve_match":
-            // CVE-Matching ist kein Worker, sondern post-scan computed.
-            return [];
-        default:
-            return [];
-    }
+/** Liefert alle in der Registry hinterlegten Worker, die für das Target anwendbar sind. */
+export function applicableWorkers(target: WorkerTarget): SecurityWorker[] {
+    return listWorkers().filter((w) => w.isApplicable(target));
 }

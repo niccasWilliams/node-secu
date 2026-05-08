@@ -16,14 +16,15 @@ export const dnsRecordsWorker: SecurityWorker = {
     description: "DNS-Hygiene: SPF, DMARC, MX, DNSSEC, CAA — keine aktiven Anfragen am Target.",
     defaultTimeoutMs: 30_000,
 
-    isApplicable(asset) {
-        return asset.kind === "domain" || asset.kind === "subdomain";
+    isApplicable(target) {
+        return target.kind === "asset_domain" || target.kind === "asset_subdomain"
+            || target.kind === "domain" || target.kind === "subdomain";
     },
 
     async run(ctx: WorkerContext): Promise<WorkerResult> {
         const start = Date.now();
         const findings: FindingDraft[] = [];
-        const target = ctx.asset.value;
+        const target = ctx.target.value;
 
         const raw: Record<string, unknown> = {};
 
@@ -155,6 +156,6 @@ async function safe<T>(fn: () => Promise<T>): Promise<{ value?: T; error?: strin
     try {
         return { value: await fn() };
     } catch (err: unknown) {
-        return { error: (err as Error).code ?? (err as Error).message };
+        return { error: (err as NodeJS.ErrnoException).code ?? (err as Error).message };
     }
 }

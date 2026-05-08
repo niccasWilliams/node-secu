@@ -48,6 +48,8 @@ Express + Drizzle (PostgreSQL) backend on Node 22, derived from `node-template`.
 
 ## 4. Filesystem map
 
+> Stand: nach Phase 0 (clean slate für Engagement-Pivot, siehe `ROADMAP.md`). Alles Engagement-/Entity-/Playbook-Bezogene kommt ab Phase 1.
+
 ```
 src/
 ├── app.ts                          # Express bootstrap (from template)
@@ -57,42 +59,35 @@ src/
 ├── db/
 │   ├── schema.ts                   # base tables (template)
 │   └── individual/
-│       └── individual-schema.ts    # ⚠️ all secu_* tables (assets, scans, findings, cve_*, ...)
+│       └── individual-schema.ts    # ⚠️ secu_audit_log + severityEnum + authorizationScopeEnum
+│                                   #    Phase 1+: engagements, entities, entity_relationships,
+│                                   #    engagement_entities, findings, artifacts, playbook_runs, …
 ├── lib/
 │   └── security/                   # ⚠️ all domain logic
-│       ├── assets/
-│       │   └── asset.service.ts
 │       ├── authorization/
 │       │   ├── authorization.service.ts        # canScan() gate — never bypass
-│       │   └── domain-ownership.service.ts     # DNS-TXT verification
+│       │   ├── authorization.types.ts          # AuthorizationResolver interface
+│       │   ├── null-resolver.ts                # Phase-0 stub (passive ja, aktiv blockiert)
+│       │   └── domain-ownership.service.ts     # DNS-TXT verification (reusable)
 │       ├── audit/
 │       │   └── audit-log.service.ts            # writes secu_audit_log
-│       ├── scans/
-│       │   └── scan-orchestrator.service.ts    # heart of the system
 │       ├── findings/
-│       │   ├── finding.service.ts              # upsert with dedup
-│       │   └── fingerprint.ts                  # stable SHA-256 from inputs
-│       ├── workers/
-│       │   ├── worker.types.ts                 # SecurityWorker contract
-│       │   ├── worker-registry.ts              # lookup + scanType→workers
-│       │   ├── passive/
-│       │   │   ├── dns-records.worker.ts       # SPF/DMARC/CAA/DNSSEC
-│       │   │   ├── tls-cert.worker.ts          # cert validity, protocol
-│       │   │   └── http-headers.worker.ts      # CSP/HSTS/cookie flags
-│       │   └── active/                         # Phase 2+ — Docker workers
-│       ├── cve/
-│       │   ├── cve-feed.service.ts             # NVD sync (Phase 4 stub)
-│       │   └── cve-matcher.service.ts          # CPE matching (Phase 4 stub)
-│       └── reports/
-│           └── report.service.ts               # markdown/PDF (Phase 3 stub)
+│       │   └── fingerprint.ts                  # stable SHA-256 from inputs (pure util)
+│       └── workers/
+│           ├── worker.types.ts                 # SecurityWorker contract
+│           ├── worker-registry.ts              # lookup + scope→workers (Phase 2 erweitert)
+│           └── passive/
+│               ├── dns-records.worker.ts       # SPF/DMARC/CAA/DNSSEC
+│               ├── tls-cert.worker.ts          # cert validity, protocol
+│               └── http-headers.worker.ts      # CSP/HSTS/cookie flags
 └── routes/
     ├── (template base routes)
-    └── security/
-        ├── public-scan/                        # POST /public/scan — anonymous, rate-limited
-        ├── assets/                             # tenant CRUD (Phase 1.5)
-        ├── scans/                              # tenant scan ops (Phase 1.5)
-        └── findings/                           # tenant finding mgmt (Phase 1.5)
+    └── security/                               # leer nach Phase 0
+                                                # Phase 1+: engagements/, entities/, playbooks/
+                                                # Phase 8: public-scan/ (Lead-Funnel, später)
 ```
+
+**Bewusst entfernt in Phase 0** (kommt frisch wieder ab Phase 1+ in Engagement-/Entity-Form): `lib/security/{assets,scans,cve,reports}`, `lib/security/findings/finding.service.ts`, `routes/security/{assets,scans,findings,public-scan}` sowie die zugehörigen secu_*-Tabellen (`assets`, `assetAuthorizations`, `scans`, `scanJobs`, `findings`, `techFingerprints`, `cveRecords`, `cveMatches`, `scanPolicies`, `publicScanLeads`).
 
 Anything under `src/routes/auth/`, `src/routes/oauth2/`, `src/middleware/`, `src/db/schema.ts`, `scripts/`, `drizzle/` (except generated migrations) is **template-synced** — do not edit by hand, it gets overwritten by the upstream `node-template` sync.
 

@@ -10,6 +10,7 @@ export const auditLogService = {
         action: string;
         actorUserId?: number | null;
         actorIp?: string | null;
+        engagementId?: number | null;
         targetType?: string;
         targetId?: number;
         payload?: Record<string, unknown>;
@@ -20,6 +21,7 @@ export const auditLogService = {
             action: input.action,
             actorUserId: input.actorUserId ?? null,
             actorIpHash: input.actorIp ? hashIp(input.actorIp) : null,
+            engagementId: input.engagementId ?? null,
             targetType: input.targetType,
             targetId: input.targetId,
             payload: input.payload ?? {},

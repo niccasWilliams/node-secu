@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-04T18:32:45.342Z
+// Generated at: 2026-05-08T00:04:57.197Z
 // Run `npm run types:generate` to regenerate this file
 
 // ============================================================================
@@ -15,12 +15,26 @@ export type EntitlementSyncOperation = 'assign' | 'update' | 'revoke' | 'state_c
 export type WorkflowQueueStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'canceled';
 export type WorkflowCreatedBy = 'user' | 'system';
 export type CreditConsumptionStatus = 'pending' | 'synced' | 'failed';
+export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
+export type AuthorizationScope = 'passive_only' | 'active_safe' | 'active_intrusive';
+export type AuthorizationKind = 'own' | 'verified_ownership' | 'written_consent' | 'internal_lab';
+export type AuthorizationProofType = 'dns_txt' | 'http_file' | 'written_contract' | 'manual_owner_verification' | 'none';
+export type EngagementKind = 'solo_lab' | 'ctf' | 'bug_bounty' | 'customer_pentest' | 'internal';
+export type EngagementStatus = 'planning' | 'active' | 'paused' | 'completed' | 'archived';
+export type EntityKind = 'asset_domain' | 'asset_subdomain' | 'asset_ip' | 'asset_host' | 'asset_url' | 'person' | 'organization' | 'location' | 'credential_ref' | 'document';
+export type EngagementEntityRole = 'primary_target' | 'in_scope' | 'out_of_scope' | 'pivot' | 'context';
+export type FindingStatus = 'open' | 'triaged' | 'confirmed' | 'false_positive' | 'fixed';
+export type FindingCategory = 'dns' | 'email_security' | 'tls' | 'http_headers' | 'exposure' | 'cms' | 'auth' | 'injection' | 'cve' | 'config' | 'deps' | 'cert' | 'phishing' | 'leak';
+export type ArtifactKind = 'screenshot' | 'file' | 'command_output' | 'pcap' | 'credential_dump' | 'note';
+export type PlaybookRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type WorkerRunStatus = 'pending' | 'provisioning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'skipped';
+export type WorkerProvider = 'local' | 'hetzner' | 'aws' | 'digitalocean' | 'docker_host' | 'tor_proxy';
 
 // ============================================================================
 // BASE APP TYPES (schema.ts)
 // ============================================================================
 
-export type NodeTemplateUser = {
+export type NodeSecuUser = {
   id: number;
   externalUserId: string | null;
   email: string | null;
@@ -47,7 +61,7 @@ export type UserInsert = {
   updatedAt?: Date | null;
 };
 
-export type NodeTemplateUserId = number;
+export type NodeSecuUserId = number;
 
 export type AuthRefreshToken = {
   id: number;
@@ -141,7 +155,7 @@ export type DirectAuthRequestVerificationResponse = {
   alreadyVerified?: boolean;
 };
 
-export type NodeTemplateUserActivity = {
+export type NodeSecuUserActivity = {
   userId: number;
   activityDate: string;
   /** Date of activity (YYYY-MM-DD) */
@@ -158,7 +172,7 @@ export type NodeTemplateUserActivity = {
   updatedAt: Date;
 };
 
-export type NodeTemplateUserActivityId = number;
+export type NodeSecuUserActivityId = number;
 
 export type AppSettings = {
   key: string;
@@ -473,7 +487,7 @@ export type PaginatedUsersWithActivityOverview = {
 // APP PERMISSIONS
 // ============================================================================
 
-export enum NodeTemplateAppPermissions {
+export enum NodeSecuAppPermissions {
   UsersManage = "users_manage",
   UsersView = "users_view",
   SettingsEdit = "settings_edit",
@@ -487,7 +501,7 @@ export enum NodeTemplateAppPermissions {
   LogDelete = "log_delete"
 }
 
-export type NodeTemplateAppPermissionValue = (typeof NodeTemplateAppPermissions)[keyof typeof NodeTemplateAppPermissions];
+export type NodeSecuAppPermissionValue = (typeof NodeSecuAppPermissions)[keyof typeof NodeSecuAppPermissions];
 
 // ============================================================================
 // APP SETTINGS
@@ -520,6 +534,351 @@ export type PaginatedResult<T> = {
 // ============================================================================
 // FEATURE TYPES (individual schema)
 // ============================================================================
+
+export type Engagement = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: EngagementKind;
+  status: EngagementStatus;
+  ownerUserId: number | null;
+  scopeSummary: string | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+  archivedAt: Date | null;
+};
+
+export type NewEngagement = {
+  name: string;
+  slug: string;
+  kind: EngagementKind;
+  status?: EngagementStatus;
+  ownerUserId?: number | null;
+  scopeSummary?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date | null;
+  archivedAt?: Date | null;
+};
+
+export type Entity = {
+  id: number;
+  kind: EntityKind;
+  displayName: string;
+  canonicalKey: string;
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+};
+
+export type NewEntity = {
+  kind: EntityKind;
+  displayName: string;
+  canonicalKey: string;
+  firstSeenAt?: Date;
+  lastSeenAt?: Date;
+};
+
+export type EntityRelationship = {
+  id: number;
+  fromEntityId: number;
+  toEntityId: number;
+  kind: string;
+  data: any | null;
+  firstObservedAt: Date;
+  lastObservedAt: Date;
+};
+
+export type NewEntityRelationship = {
+  fromEntityId: number;
+  toEntityId: number;
+  kind: string;
+  data?: any | null;
+  firstObservedAt?: Date;
+  lastObservedAt?: Date;
+};
+
+export type RelationshipKind = | "employs" | "works_with" | "subsidiary_of" | "parent_of" | "supplies"
+    | "customer_of" | "member_of" | "located_at"
+    | "owns_credential" | "uses_credential"
+    | "owns" | "operates"
+    | "resolves_to" | "hosted_on" | "runs_on"
+    | "uses_tech" | "linked_to"
+    | string;
+
+export type EntityTag = {
+  id: number;
+  entityId: number;
+  tag: string;
+  color: string | null;
+  createdAt: Date;
+};
+
+export type NewEntityTag = {
+  entityId: number;
+  tag: string;
+  color?: string | null;
+  createdAt?: Date;
+};
+
+export type EngagementEntity = {
+  id: number;
+  engagementId: number;
+  entityId: number;
+  role: EngagementEntityRole;
+  notes: string | null;
+  addedAt: Date;
+  addedBy: number | null;
+};
+
+export type NewEngagementEntity = {
+  engagementId: number;
+  entityId: number;
+  role?: EngagementEntityRole;
+  notes?: string | null;
+  addedAt?: Date;
+  addedBy?: number | null;
+};
+
+export type EntityAuthorization = {
+  id: number;
+  entityId: number;
+  kind: AuthorizationKind;
+  scope: AuthorizationScope;
+  proofType: AuthorizationProofType;
+  proofRef: string | null;
+  verificationToken: string | null;
+  grantedBy: number | null;
+  grantedAt: Date;
+  verifiedAt: Date | null;
+  expiresAt: Date | null;
+  revokedAt: Date | null;
+  revokedBy: number | null;
+  notes: string | null;
+  createdAt: Date;
+};
+
+export type NewEntityAuthorization = {
+  entityId: number;
+  kind: AuthorizationKind;
+  scope: AuthorizationScope;
+  proofType?: AuthorizationProofType;
+  proofRef?: string | null;
+  verificationToken?: string | null;
+  grantedBy?: number | null;
+  grantedAt?: Date;
+  verifiedAt?: Date | null;
+  expiresAt?: Date | null;
+  revokedAt?: Date | null;
+  revokedBy?: number | null;
+  notes?: string | null;
+  createdAt?: Date;
+};
+
+export type Finding = {
+  id: number;
+  engagementId: number;
+  entityId: number | null;
+  workerRunId: number | null;
+  fingerprint: string;
+  severity: Severity;
+  category: FindingCategory;
+  status: FindingStatus;
+  title: string;
+  description: string;
+  rawData: any | null;
+  recommendation: string | null;
+  cveIds: any;
+  cvssScore: string | null;
+  discoveredAt: Date;
+  resolvedAt: Date | null;
+};
+
+export type NewFinding = {
+  engagementId: number;
+  entityId?: number | null;
+  workerRunId?: number | null;
+  fingerprint: string;
+  severity: Severity;
+  category: FindingCategory;
+  status?: FindingStatus;
+  title: string;
+  description: string;
+  rawData?: any | null;
+  recommendation?: string | null;
+  cveIds?: any;
+  cvssScore?: string | null;
+  discoveredAt?: Date;
+  resolvedAt?: Date | null;
+};
+
+export type Artifact = {
+  id: number;
+  engagementId: number;
+  entityId: number | null;
+  kind: ArtifactKind;
+  title: string | null;
+  body: string | null;
+  storageRef: string | null;
+  mime: string | null;
+  sha256: string | null;
+  sizeBytes: number | null;
+  redacted: boolean;
+  capturedAt: Date;
+  createdBy: number | null;
+};
+
+export type NewArtifact = {
+  engagementId: number;
+  entityId?: number | null;
+  kind: ArtifactKind;
+  title?: string | null;
+  body?: string | null;
+  storageRef?: string | null;
+  mime?: string | null;
+  sha256?: string | null;
+  sizeBytes?: number | null;
+  redacted?: boolean;
+  capturedAt?: Date;
+  createdBy?: number | null;
+};
+
+export type CommandHistoryEntry = {
+  id: number;
+  engagementId: number;
+  entityId: number | null;
+  workerRunId: number | null;
+  rawCommand: string;
+  exitCode: number | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+};
+
+export type NewCommandHistoryEntry = {
+  engagementId: number;
+  entityId?: number | null;
+  workerRunId?: number | null;
+  rawCommand: string;
+  exitCode?: number | null;
+  startedAt?: Date;
+  finishedAt?: Date | null;
+};
+
+export type PlaybookRun = {
+  id: number;
+  engagementId: number;
+  playbookKey: string;
+  status: PlaybookRunStatus;
+  triggeredByUserId: number | null;
+  params: any | null;
+  resultSummary: any | null;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  createdAt: Date;
+};
+
+export type NewPlaybookRun = {
+  engagementId: number;
+  playbookKey: string;
+  status?: PlaybookRunStatus;
+  triggeredByUserId?: number | null;
+  params?: any | null;
+  resultSummary?: any | null;
+  startedAt?: Date | null;
+  finishedAt?: Date | null;
+  createdAt?: Date;
+};
+
+export type WorkerRun = {
+  id: number;
+  playbookRunId: number | null;
+  engagementId: number;
+  entityId: number | null;
+  workerKey: string;
+  status: WorkerRunStatus;
+  provider: WorkerProvider;
+  providerInstanceId: string | null;
+  providerRegion: string | null;
+  logsRef: string | null;
+  exitCode: number | null;
+  error: string | null;
+  durationMs: number | null;
+  startedAt: Date | null;
+  finishedAt: Date | null;
+  createdAt: Date;
+};
+
+export type NewWorkerRun = {
+  playbookRunId?: number | null;
+  engagementId: number;
+  entityId?: number | null;
+  workerKey: string;
+  status?: WorkerRunStatus;
+  provider?: WorkerProvider;
+  providerInstanceId?: string | null;
+  providerRegion?: string | null;
+  logsRef?: string | null;
+  exitCode?: number | null;
+  error?: string | null;
+  durationMs?: number | null;
+  startedAt?: Date | null;
+  finishedAt?: Date | null;
+  createdAt?: Date;
+};
+
+export type SecurityAuditLog = {
+  id: number;
+  actorUserId: number | null;
+  actorIpHash: string | null;
+  engagementId: number | null;
+  action: string;
+  targetType: string | null;
+  targetId: number | null;
+  payload: any;
+  success: boolean;
+  errorMessage: string | null;
+  createdAt: Date;
+};
+
+export type NewSecurityAuditLog = {
+  actorUserId?: number | null;
+  actorIpHash?: string | null;
+  engagementId?: number | null;
+  action: string;
+  targetType?: string | null;
+  targetId?: number | null;
+  payload?: any;
+  success?: boolean;
+  errorMessage?: string | null;
+  createdAt?: Date;
+};
+
+export type EngagementGraph = {
+    engagementId: number;
+    nodes: Array<{
+        data: {
+            id: string;
+            label: string;
+            kind: EntityKind;
+            entityId: number;
+            role: EngagementEntityRole | null;
+            tags: string[];
+        };
+    }>;
+    edges: Array<{
+        data: {
+            id: string;
+            source: string;
+            target: string;
+            kind: string;
+            confidence: number;
+        };
+    }>;
+};
+
+export type EngagementWithGraph = Engagement & {
+    graph: EngagementGraph;
+    entityCount: number;
+    findingCount: number;
+};
 
 
 // ============================================================================

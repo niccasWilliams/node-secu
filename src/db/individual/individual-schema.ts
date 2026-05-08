@@ -1,22 +1,37 @@
 // INDIVIDUAL SCHEMA — Node-Secu Security Domain
 // This file is NOT synced with the template.
 //
-// Domain-Modell für Security-Scanning, Vulnerability-Assessment und CVE-Matching.
-// Tabellen-Reihenfolge folgt Abhängigkeiten: assets → authorizations → scans → jobs → findings.
+// Phase 1 (engagement pivot, 2026-05-08): Engagement-zentrisches Graphmodell.
+//
+// Globale Identitäts-Schicht (engagement-übergreifend):
+//   - entities                   — globale Person/Org/Domain/IP/URL/...
+//   - entity_relationships       — Beziehungen zwischen entities (objektive Fakten)
+//   - entity_tags                — globale Labels
+//
+// Engagement-Schicht (operations-lokal):
+//   - engagements                — Pentest-/Lab-Engagement (Wurzel jeder Operation)
+//   - engagement_entities        — n:m Engagement ↔ Entity inkl. Rolle
+//   - entity_authorizations      — wer darf was an einer Entity scannen
+//   - findings                   — engagement-lokale Findings am Entity
+//   - artifacts                  — Loot, Screenshots, Notizen
+//   - command_history            — Replay-Spur
+//   - playbook_runs              — DAG-Run im Engagement-Kontext
+//   - worker_runs                — einzelner Tool-Run, Cloud-/Local-provisioniert
+//   - secu_audit_log             — bekommt FK engagement_id
 
 import {
     boolean,
     index,
     integer,
+    jsonb,
     pgEnum,
     pgTable,
     serial,
     text,
     timestamp,
     unique,
-    jsonb,
-    varchar,
     uniqueIndex,
+    varchar,
 } from "drizzle-orm/pg-core";
 import { users } from "../schema";
 
@@ -24,506 +39,408 @@ import { users } from "../schema";
 // ENUMS
 // ============================================================================
 
-export const assetKindEnum = pgEnum("secu_asset_kind", [
-    "domain",        // example.com
-    "subdomain",     // api.example.com
-    "ip",            // 192.0.2.1
-    "url",           // https://example.com/login
-    "host",          // mail.example.com (kein A-Record nötig — z.B. SMTP)
-]);
-
-export const authorizationKindEnum = pgEnum("secu_authorization_kind", [
-    "own",                   // Eigene Infrastruktur (kein extra Proof nötig)
-    "verified_ownership",    // Kunde hat per DNS-TXT/HTTP-Token bewiesen
-    "written_consent",       // Unterschriebener Pentest-Vertrag (PDF in Files)
-    "internal_lab",          // Internes Lab/CTF/eigene Test-Umgebung
+export const severityEnum = pgEnum("secu_severity", [
+    "critical",
+    "high",
+    "medium",
+    "low",
+    "info",
 ]);
 
 export const authorizationScopeEnum = pgEnum("secu_authorization_scope", [
-    "passive_only",          // Nur passive Recon (DNS, public OSINT, TLS)
-    "active_safe",            // Active scans ohne Auth-Bruteforce / Exploit (nuclei safe templates)
-    "active_intrusive",       // Vollständiger Pentest inkl. Auth-Tests, sqlmap, hydra
+    "passive_only",
+    "active_safe",
+    "active_intrusive",
 ]);
 
-export const proofTypeEnum = pgEnum("secu_proof_type", [
-    "dns_txt",               // _secu-verify.<domain> TXT mit Token
-    "http_well_known",       // /.well-known/secu-verify mit Token
-    "manual_admin",          // Admin-User hat zugesagt (für own assets)
-    "contract_pdf",          // PDF-Vertrag in S3 hinterlegt
+export const authorizationKindEnum = pgEnum("secu_authorization_kind", [
+    "own",
+    "verified_ownership",
+    "written_consent",
+    "internal_lab",
 ]);
 
-export const scanTypeEnum = pgEnum("secu_scan_type", [
-    "passive_quick",         // 30s — DNS, headers, TLS-basics, public exposure
-    "passive_full",          // ~5min — + WHOIS, subdomain enum, tech detect, leak check
-    "active_safe",            // ~15min — nuclei (safe), nmap (top 1000), sslyze deep
-    "active_intrusive",       // 30min+ — alles inkl. wpscan, ffuf, sqlmap, hydra (auth required)
-    "cve_match",             // Match aktuelle CVEs gegen erkannte Tech-Versionen
-    "monitor_diff",          // Re-Scan + Diff zu letztem Scan (für Continuous Monitoring)
+export const authorizationProofTypeEnum = pgEnum("secu_authorization_proof_type", [
+    "dns_txt",
+    "http_file",
+    "written_contract",
+    "manual_owner_verification",
+    "none",
 ]);
 
-export const scanStatusEnum = pgEnum("secu_scan_status", [
-    "queued",
-    "running",
+export const engagementKindEnum = pgEnum("secu_engagement_kind", [
+    "solo_lab",
+    "ctf",
+    "bug_bounty",
+    "customer_pentest",
+    "internal",
+]);
+
+export const engagementStatusEnum = pgEnum("secu_engagement_status", [
+    "planning",
+    "active",
+    "paused",
     "completed",
-    "failed",
-    "partial",               // Einige Jobs erfolgreich, andere gefailt
-    "canceled",
-    "blocked",               // Abgebrochen wegen fehlender Authorization
+    "archived",
 ]);
 
-export const scanTriggerEnum = pgEnum("secu_scan_trigger", [
-    "manual",                // User hat im Dashboard auf "Scan" geklickt
-    "public_free",           // Anonymer Public-Scan auf der Lead-Page
-    "scheduled",             // Aus scan_policies per Cron
-    "api",                   // Externes System (Boss, CI/CD)
-    "rescan_diff",           // Periodisch vom monitor_diff scheduler
-    "cve_alert",             // Neue CVE matched → automatischer rescan
+export const entityKindEnum = pgEnum("secu_entity_kind", [
+    "asset_domain",
+    "asset_subdomain",
+    "asset_ip",
+    "asset_host",
+    "asset_url",
+    "person",
+    "organization",
+    "location",
+    "credential_ref",
+    "document",
 ]);
 
-export const jobStatusEnum = pgEnum("secu_job_status", [
-    "pending",
-    "running",
-    "completed",
-    "failed",
-    "skipped",               // z.B. weil Authorization für aktives Tool fehlt
-    "timeout",
-]);
-
-export const severityEnum = pgEnum("secu_severity", [
-    "critical",              // CVSS 9.0-10.0 — sofort handeln
-    "high",                  // CVSS 7.0-8.9
-    "medium",                // CVSS 4.0-6.9
-    "low",                   // CVSS 0.1-3.9
-    "info",                  // Kein Risiko, nur informativ
-]);
-
-export const findingCategoryEnum = pgEnum("secu_finding_category", [
-    "dns",                   // SPF/DKIM/DMARC/DNSSEC fehlerhaft
-    "email_security",        // Email-Phishing-Risiko, Lookalike-Domains
-    "tls",                   // TLS-Cipher, Cert-Issues, HSTS
-    "http_headers",          // CSP, X-Frame-Options, etc.
-    "exposure",              // Public exposed services, leaked secrets
-    "cms",                   // WordPress, Joomla — outdated/vuln plugins
-    "auth",                  // Auth-Bruteforce-Resistance, Default-Creds
-    "injection",             // SQLi, XSS, Command Injection
-    "cve",                   // Tech-Stack matched gegen CVE-Datenbank
-    "config",                // Misconfiguration (offene Ports, debug-mode aktiv)
-    "deps",                  // Outdated dependencies
-    "cert",                  // Cert-Expiration, weak signing
-    "phishing",              // Phishing-Domains/Lookalikes
-    "leak",                  // Datenlecks, Credential-Leaks (HIBP)
+export const engagementEntityRoleEnum = pgEnum("secu_engagement_entity_role", [
+    "primary_target",
+    "in_scope",
+    "out_of_scope",
+    "pivot",
+    "context",
 ]);
 
 export const findingStatusEnum = pgEnum("secu_finding_status", [
     "open",
-    "acknowledged",          // User hat gesehen, plant Fix
-    "in_progress",           // Aktiv in Bearbeitung
-    "resolved",              // Re-Scan bestätigt: behoben
-    "wont_fix",              // Bewusst akzeptiertes Risiko
-    "false_positive",        // Triage hat als FP markiert
+    "triaged",
+    "confirmed",
+    "false_positive",
+    "fixed",
 ]);
 
-export const policyTypeEnum = pgEnum("secu_policy_type", [
-    "scheduled_scan",        // Regelmäßiger Scan (z.B. wöchentlich nuclei)
-    "cve_watch",             // Auto-Match neuer CVEs gegen Tech-Stack
-    "cert_expiry",           // TLS-Cert läuft in <30 Tagen ab
-    "domain_health",         // Tägliches Domain-Health-Monitoring
+export const findingCategoryEnum = pgEnum("secu_finding_category", [
+    "dns",
+    "email_security",
+    "tls",
+    "http_headers",
+    "exposure",
+    "cms",
+    "auth",
+    "injection",
+    "cve",
+    "config",
+    "deps",
+    "cert",
+    "phishing",
+    "leak",
 ]);
 
-export const leadStatusEnum = pgEnum("secu_lead_status", [
-    "new",                   // Frisch eingegangen
-    "contacted",             // Sales hat sich gemeldet
-    "engaged",               // Hat aktiv geantwortet
-    "converted",             // Wurde zahlender Kunde
-    "rejected",              // Hat abgelehnt
-    "lost",                  // Kein Response nach mehreren Tries
+export const artifactKindEnum = pgEnum("secu_artifact_kind", [
+    "screenshot",
+    "file",
+    "command_output",
+    "pcap",
+    "credential_dump",
+    "note",
+]);
+
+export const playbookRunStatusEnum = pgEnum("secu_playbook_run_status", [
+    "pending",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+]);
+
+export const workerRunStatusEnum = pgEnum("secu_worker_run_status", [
+    "pending",
+    "provisioning",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+    "skipped",
+]);
+
+export const workerProviderEnum = pgEnum("secu_worker_provider", [
+    "local",
+    "hetzner",
+    "aws",
+    "digitalocean",
+    "docker_host",
+    "tor_proxy",
 ]);
 
 // ============================================================================
-// ASSETS — was scannen wir?
+// GLOBAL IDENTITY LAYER — entities, relationships, tags
 // ============================================================================
 
-export const assets = pgTable("secu_assets", {
+/**
+ * Globale Entities — engagement-übergreifend.
+ *
+ * Eine Person/Domain/Org existiert genau einmal. Wenn dieselbe Person in
+ * mehreren Engagements auftaucht, wird sie über `engagement_entities` verlinkt.
+ * Das ergibt die globale "Karte" über Kunden/Lieferanten/Tochterfirmen.
+ *
+ * `canonical_key` ist die normalisierte Form für Dedup:
+ *   - asset_domain    → "example.com" (lowercase, ohne trailing dot)
+ *   - asset_url       → vollständige normalisierte URL
+ *   - person          → normalisierte Email (oder hash(name + org))
+ *   - organization    → lowercased Legal-Name
+ */
+export const entities = pgTable("secu_entities", {
     id: serial("id").primaryKey(),
-    ownerUserId: integer("owner_user_id").references(() => users.id, { onDelete: "set null" }),
 
-    kind: assetKindEnum("kind").notNull(),
-    value: varchar("value", { length: 512 }).notNull(),    // "example.com" oder "192.0.2.1"
-    label: varchar("label", { length: 255 }),               // Frei wählbarer Anzeigename
+    kind: entityKindEnum("kind").notNull(),
+    displayName: varchar("display_name", { length: 256 }).notNull(),
+    canonicalKey: varchar("canonical_key", { length: 512 }).notNull(),
 
-    // Internal-Use vs. Customer
-    isOwnInfrastructure: boolean("is_own_infrastructure").notNull().default(false),
-    tenantRef: varchar("tenant_ref", { length: 255 }),      // managingCompanyId aus AMP, optional
+    /** Kind-spezifische Daten — z.B. {ip: "1.2.3.4"} für asset_ip, {email, role} für person. */
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
 
-    // Metadata
-    notes: text("notes"),
-    tags: jsonb("tags").$type<string[]>().default([]).notNull(),
-
-    // Lifecycle
-    isActive: boolean("is_active").notNull().default(true),
-    archivedAt: timestamp("archived_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
 }, (t) => ({
-    valueIdx: index("secu_assets_value_idx").on(t.value),
-    ownerIdx: index("secu_assets_owner_idx").on(t.ownerUserId),
-    activeIdx: index("secu_assets_active_idx").on(t.isActive),
-    uniqValueOwner: uniqueIndex("secu_assets_value_owner_uniq").on(t.value, t.ownerUserId, t.kind),
+    kindIdx: index("secu_entities_kind_idx").on(t.kind),
+    canonicalIdx: index("secu_entities_canonical_idx").on(t.canonicalKey),
+    kindCanonicalUnique: uniqueIndex("secu_entities_kind_canonical_unique").on(t.kind, t.canonicalKey),
+}));
+
+/**
+ * Beziehungen zwischen Entities — global.
+ *
+ * Beispiele:
+ *   - person → organization (kind="employs")
+ *   - asset_domain → asset_ip (kind="resolves_to")
+ *   - asset_url → asset_host (kind="hosted_on")
+ *
+ * `kind` ist absichtlich varchar (kein enum), weil neue Beziehungstypen aus
+ * OSINT-Recon dynamisch entstehen können. Das Frontend kennt den festen
+ * Kanon (siehe RelationshipKind-Type unten), unbekannte Werte werden generisch
+ * gerendert.
+ */
+export const entityRelationships = pgTable("secu_entity_relationships", {
+    id: serial("id").primaryKey(),
+
+    fromEntityId: integer("from_entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
+    toEntityId: integer("to_entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
+    kind: varchar("kind", { length: 64 }).notNull(),
+
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    /** 0–100, default 100 = bestätigtes Faktum. */
+    confidence: integer("confidence").notNull().default(100),
+    /** "manual" | "recon_<tool>" | "osint_<source>" */
+    source: varchar("source", { length: 64 }).notNull().default("manual"),
+
+    firstObservedAt: timestamp("first_observed_at").notNull().defaultNow(),
+    lastObservedAt: timestamp("last_observed_at").notNull().defaultNow(),
+}, (t) => ({
+    fromIdx: index("secu_rel_from_idx").on(t.fromEntityId),
+    toIdx: index("secu_rel_to_idx").on(t.toEntityId),
+    kindIdx: index("secu_rel_kind_idx").on(t.kind),
+    tripleUnique: uniqueIndex("secu_rel_triple_unique").on(t.fromEntityId, t.toEntityId, t.kind),
+}));
+
+/**
+ * Globale Tags an Entities — z.B. "high_value_target", "internal_employee".
+ */
+export const entityTags = pgTable("secu_entity_tags", {
+    id: serial("id").primaryKey(),
+    entityId: integer("entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
+    tag: varchar("tag", { length: 64 }).notNull(),
+    color: varchar("color", { length: 16 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+    entityIdx: index("secu_entity_tags_entity_idx").on(t.entityId),
+    entityTagUnique: unique("secu_entity_tags_entity_tag_unique").on(t.entityId, t.tag),
 }));
 
 // ============================================================================
-// AUTHORIZATIONS — was darf an einem Asset gescannt werden?
+// ENGAGEMENT LAYER — engagements, engagement_entities, authorizations
 // ============================================================================
 
-export const assetAuthorizations = pgTable("secu_asset_authorizations", {
+export const engagements = pgTable("secu_engagements", {
     id: serial("id").primaryKey(),
-    assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 256 }).notNull(),
+    slug: varchar("slug", { length: 128 }).notNull(),
+    kind: engagementKindEnum("kind").notNull(),
+    status: engagementStatusEnum("status").notNull().default("active"),
+    ownerUserId: integer("owner_user_id").references(() => users.id, { onDelete: "set null" }),
+    scopeSummary: text("scope_summary"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+    archivedAt: timestamp("archived_at"),
+}, (t) => ({
+    slugUnique: unique("secu_engagements_slug_unique").on(t.slug),
+    ownerIdx: index("secu_engagements_owner_idx").on(t.ownerUserId),
+    statusIdx: index("secu_engagements_status_idx").on(t.status),
+}));
 
+export const engagementEntities = pgTable("secu_engagement_entities", {
+    id: serial("id").primaryKey(),
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
+    role: engagementEntityRoleEnum("role").notNull().default("in_scope"),
+    notes: text("notes"),
+    addedAt: timestamp("added_at").notNull().defaultNow(),
+    addedBy: integer("added_by").references(() => users.id, { onDelete: "set null" }),
+}, (t) => ({
+    engagementIdx: index("secu_eng_ent_engagement_idx").on(t.engagementId),
+    entityIdx: index("secu_eng_ent_entity_idx").on(t.entityId),
+    pairUnique: unique("secu_eng_ent_pair_unique").on(t.engagementId, t.entityId),
+}));
+
+/**
+ * Authorization-Records pro Entity. Sie ersetzen die alten asset_authorizations.
+ *
+ * `kind` × `scope` entscheiden, welche Worker laufen dürfen. Verifizierung passiert
+ * je nach `proofType`: bei DNS-TXT wird `verificationToken` gesetzt und durch
+ * `domain-ownership.service.ts` geprüft; written_consent verlangt manuelle
+ * Markierung (verifiedAt) durch den Operator nach Vertragsabschluss.
+ */
+export const entityAuthorizations = pgTable("secu_entity_authorizations", {
+    id: serial("id").primaryKey(),
+    entityId: integer("entity_id").notNull().references(() => entities.id, { onDelete: "cascade" }),
     kind: authorizationKindEnum("kind").notNull(),
     scope: authorizationScopeEnum("scope").notNull(),
-
-    // Proof
-    proofType: proofTypeEnum("proof_type").notNull(),
-    proofValue: text("proof_value"),                        // Token, S3-Key des PDF-Vertrags, etc.
-    verifiedAt: timestamp("verified_at"),
-    verificationAttempts: integer("verification_attempts").notNull().default(0),
-    verificationError: text("verification_error"),
-
-    // Lifecycle
-    grantedByUserId: integer("granted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    proofType: authorizationProofTypeEnum("proof_type").notNull().default("none"),
+    proofRef: text("proof_ref"),
+    verificationToken: varchar("verification_token", { length: 128 }),
+    grantedBy: integer("granted_by").references(() => users.id, { onDelete: "set null" }),
     grantedAt: timestamp("granted_at").notNull().defaultNow(),
+    verifiedAt: timestamp("verified_at"),
     expiresAt: timestamp("expires_at"),
     revokedAt: timestamp("revoked_at"),
-    revokedReason: text("revoked_reason"),
-
+    revokedBy: integer("revoked_by").references(() => users.id, { onDelete: "set null" }),
+    notes: text("notes"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
-    assetIdx: index("secu_auth_asset_idx").on(t.assetId),
-    activeIdx: index("secu_auth_active_idx").on(t.assetId, t.scope, t.revokedAt),
+    entityIdx: index("secu_auth_entity_idx").on(t.entityId),
+    scopeIdx: index("secu_auth_scope_idx").on(t.scope),
+    activeIdx: index("secu_auth_active_idx").on(t.entityId, t.revokedAt),
 }));
 
 // ============================================================================
-// SCANS — eine Scan-Session
-// ============================================================================
-
-export const scans = pgTable("secu_scans", {
-    id: serial("id").primaryKey(),
-    assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
-
-    scanType: scanTypeEnum("scan_type").notNull(),
-    trigger: scanTriggerEnum("trigger").notNull(),
-    triggeredByUserId: integer("triggered_by_user_id").references(() => users.id, { onDelete: "set null" }),
-    publicLeadId: integer("public_lead_id"),                // Falls Public-Free-Scan, FK auf publicScanLeads (siehe unten)
-
-    // Authorization
-    authorizationId: integer("authorization_id").references(() => assetAuthorizations.id, { onDelete: "set null" }),
-
-    // Status
-    status: scanStatusEnum("status").notNull().default("queued"),
-    progressPercent: integer("progress_percent").notNull().default(0),
-
-    // Timing
-    queuedAt: timestamp("queued_at").notNull().defaultNow(),
-    startedAt: timestamp("started_at"),
-    completedAt: timestamp("completed_at"),
-    timeoutAt: timestamp("timeout_at"),
-
-    // Summary (denormalisiert für schnelles Listing)
-    summary: jsonb("summary").$type<{
-        criticalCount?: number;
-        highCount?: number;
-        mediumCount?: number;
-        lowCount?: number;
-        infoCount?: number;
-        jobsTotal?: number;
-        jobsCompleted?: number;
-        jobsFailed?: number;
-    }>().default({}).notNull(),
-
-    errorMessage: text("error_message"),
-
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (t) => ({
-    assetIdx: index("secu_scans_asset_idx").on(t.assetId),
-    statusIdx: index("secu_scans_status_idx").on(t.status),
-    typeStatusIdx: index("secu_scans_type_status_idx").on(t.scanType, t.status),
-    triggerIdx: index("secu_scans_trigger_idx").on(t.trigger),
-}));
-
-// ============================================================================
-// SCAN_JOBS — einzelner Worker-Job innerhalb eines Scans
-// ============================================================================
-
-export const scanJobs = pgTable("secu_scan_jobs", {
-    id: serial("id").primaryKey(),
-    scanId: integer("scan_id").notNull().references(() => scans.id, { onDelete: "cascade" }),
-
-    jobKey: varchar("job_key", { length: 64 }).notNull(),   // "dns", "tls", "headers", "nuclei", "nmap"
-    workerVersion: varchar("worker_version", { length: 64 }), // Tool-Version für Reproducibility
-
-    status: jobStatusEnum("status").notNull().default("pending"),
-
-    startedAt: timestamp("started_at"),
-    completedAt: timestamp("completed_at"),
-    durationMs: integer("duration_ms"),
-
-    // Output
-    rawOutput: jsonb("raw_output").$type<unknown>(),         // Tool-Output, normalisiert
-    findingsCount: integer("findings_count").notNull().default(0),
-
-    error: text("error"),
-    retryCount: integer("retry_count").notNull().default(0),
-
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (t) => ({
-    scanIdx: index("secu_jobs_scan_idx").on(t.scanId),
-    keyIdx: index("secu_jobs_key_idx").on(t.jobKey),
-}));
-
-// ============================================================================
-// FINDINGS — die eigentlichen Sicherheitslücken/Konfig-Probleme
+// FINDINGS / ARTIFACTS / COMMAND HISTORY
 // ============================================================================
 
 export const findings = pgTable("secu_findings", {
     id: serial("id").primaryKey(),
-    scanId: integer("scan_id").references(() => scans.id, { onDelete: "set null" }),
-    scanJobId: integer("scan_job_id").references(() => scanJobs.id, { onDelete: "set null" }),
-    assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id").references(() => entities.id, { onDelete: "set null" }),
+    workerRunId: integer("worker_run_id"),
 
-    // Deduplication
-    fingerprintHash: varchar("fingerprint_hash", { length: 64 }).notNull(),
-
+    fingerprint: varchar("fingerprint", { length: 64 }).notNull(),
     severity: severityEnum("severity").notNull(),
     category: findingCategoryEnum("category").notNull(),
+    status: findingStatusEnum("status").notNull().default("open"),
 
-    title: varchar("title", { length: 512 }).notNull(),
+    title: varchar("title", { length: 256 }).notNull(),
     description: text("description").notNull(),
-    evidence: jsonb("evidence").$type<unknown>().default({}).notNull(),
+    rawData: jsonb("raw_data").$type<Record<string, unknown>>().notNull().default({}),
     recommendation: text("recommendation"),
 
-    // CVE-Referenzen (falls applicable)
-    cveIds: jsonb("cve_ids").$type<string[]>().default([]).notNull(),
-    cvssScore: varchar("cvss_score", { length: 16 }),       // String weil "9.8" oder "N/A"
+    cveIds: jsonb("cve_ids").$type<string[]>().notNull().default([]),
+    cvssScore: varchar("cvss_score", { length: 16 }),
 
-    // Status & Workflow
-    status: findingStatusEnum("status").notNull().default("open"),
-    statusReason: text("status_reason"),
+    discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
     resolvedAt: timestamp("resolved_at"),
-    resolvedByUserId: integer("resolved_by_user_id").references(() => users.id, { onDelete: "set null" }),
-
-    // Triage (AI)
-    triageConfidence: varchar("triage_confidence", { length: 16 }),  // "high" | "medium" | "low"
-    triageReasoning: text("triage_reasoning"),
-    triageRanAt: timestamp("triage_ran_at"),
-
-    // Lifecycle
-    firstSeenAt: timestamp("first_seen_at").notNull().defaultNow(),
-    lastSeenAt: timestamp("last_seen_at").notNull().defaultNow(),
-    seenCount: integer("seen_count").notNull().default(1),
-
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
-    assetSeverityIdx: index("secu_findings_asset_sev_idx").on(t.assetId, t.severity, t.status),
-    scanIdx: index("secu_findings_scan_idx").on(t.scanId),
-    fingerprintIdx: index("secu_findings_fingerprint_idx").on(t.assetId, t.fingerprintHash),
-    statusIdx: index("secu_findings_status_idx").on(t.status),
-    uniqAssetFingerprint: uniqueIndex("secu_findings_asset_fp_uniq").on(t.assetId, t.fingerprintHash),
+    engagementIdx: index("secu_findings_engagement_idx").on(t.engagementId),
+    entityIdx: index("secu_findings_entity_idx").on(t.entityId),
+    statusIdx: index("secu_findings_status_idx").on(t.engagementId, t.status),
+    severityIdx: index("secu_findings_severity_idx").on(t.engagementId, t.severity),
+    fingerprintUnique: unique("secu_findings_engagement_fingerprint_unique").on(t.engagementId, t.fingerprint),
 }));
 
-// ============================================================================
-// TECH FINGERPRINTS — Tech-Stack pro Asset (für CVE-Matching)
-// ============================================================================
-
-export const techFingerprints = pgTable("secu_tech_fingerprints", {
+export const artifacts = pgTable("secu_artifacts", {
     id: serial("id").primaryKey(),
-    assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
-    scanId: integer("scan_id").references(() => scans.id, { onDelete: "set null" }),
-
-    // Tech identification
-    techName: varchar("tech_name", { length: 128 }).notNull(),    // "nginx", "wordpress", "react"
-    version: varchar("version", { length: 64 }),                   // "1.21.6", evtl. null wenn unbekannt
-    cpe: varchar("cpe", { length: 256 }),                          // "cpe:2.3:a:nginx:nginx:1.21.6:*:*:*:*:*:*:*"
-
-    // Detection
-    detectionSource: varchar("detection_source", { length: 64 }).notNull(),  // "header" | "wappalyzer" | "nuclei" | "manual"
-    confidence: varchar("confidence", { length: 16 }).notNull(),             // "high" | "medium" | "low"
-    evidence: jsonb("evidence").$type<unknown>(),
-
-    // Lifecycle
-    firstDetectedAt: timestamp("first_detected_at").notNull().defaultNow(),
-    lastDetectedAt: timestamp("last_detected_at").notNull().defaultNow(),
-    currentlyPresent: boolean("currently_present").notNull().default(true),
-
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id").references(() => entities.id, { onDelete: "set null" }),
+    kind: artifactKindEnum("kind").notNull(),
+    title: varchar("title", { length: 256 }),
+    body: text("body"),
+    storageRef: text("storage_ref"),
+    mime: varchar("mime", { length: 128 }),
+    sha256: varchar("sha256", { length: 64 }),
+    sizeBytes: integer("size_bytes"),
+    redacted: boolean("redacted").notNull().default(false),
+    capturedAt: timestamp("captured_at").notNull().defaultNow(),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
 }, (t) => ({
-    assetIdx: index("secu_tech_asset_idx").on(t.assetId),
-    techIdx: index("secu_tech_name_idx").on(t.techName),
-    cpeIdx: index("secu_tech_cpe_idx").on(t.cpe),
-    uniqAssetTech: uniqueIndex("secu_tech_asset_tech_uniq").on(t.assetId, t.techName, t.version),
+    engagementIdx: index("secu_artifacts_engagement_idx").on(t.engagementId),
+    entityIdx: index("secu_artifacts_entity_idx").on(t.entityId),
+    kindIdx: index("secu_artifacts_kind_idx").on(t.kind),
 }));
 
-// ============================================================================
-// CVE_RECORDS — öffentliche CVE-Datenbank (synced von NVD)
-// ============================================================================
-
-export const cveRecords = pgTable("secu_cve_records", {
-    cveId: varchar("cve_id", { length: 32 }).primaryKey(),  // "CVE-2024-12345"
-
-    publishedAt: timestamp("published_at"),
-    lastModifiedAt: timestamp("last_modified_at"),
-
-    // Severity
-    cvssV3Score: varchar("cvss_v3_score", { length: 16 }),
-    cvssV3Vector: varchar("cvss_v3_vector", { length: 256 }),
-    cvssV2Score: varchar("cvss_v2_score", { length: 16 }),
-    severity: severityEnum("severity"),
-
-    // Description
-    summary: text("summary").notNull(),
-    references: jsonb("references").$type<string[]>().default([]).notNull(),
-    cwe: jsonb("cwe").$type<string[]>().default([]).notNull(),
-
-    // Affected products (CPE matches)
-    affectedProducts: jsonb("affected_products").$type<unknown>().default([]).notNull(),
-
-    // Threat-Intel
-    exploitedInWild: boolean("exploited_in_wild").notNull().default(false),
-    exploitDbId: varchar("exploit_db_id", { length: 64 }),
-
-    // Sync metadata
-    syncedAt: timestamp("synced_at").notNull().defaultNow(),
-
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-}, (t) => ({
-    severityIdx: index("secu_cve_severity_idx").on(t.severity),
-    publishedIdx: index("secu_cve_published_idx").on(t.publishedAt),
-    exploitedIdx: index("secu_cve_exploited_idx").on(t.exploitedInWild),
-}));
-
-// ============================================================================
-// CVE_MATCHES — Asset×CVE matched (basierend auf tech_fingerprints)
-// ============================================================================
-
-export const cveMatches = pgTable("secu_cve_matches", {
+export const commandHistory = pgTable("secu_command_history", {
     id: serial("id").primaryKey(),
-    assetId: integer("asset_id").notNull().references(() => assets.id, { onDelete: "cascade" }),
-    techFingerprintId: integer("tech_fingerprint_id").references(() => techFingerprints.id, { onDelete: "set null" }),
-    cveId: varchar("cve_id", { length: 32 }).notNull().references(() => cveRecords.cveId, { onDelete: "cascade" }),
-
-    // Match-Details
-    confidence: varchar("confidence", { length: 16 }).notNull(),        // "high" (exact CPE match) | "medium" | "low"
-    matchSource: varchar("match_source", { length: 64 }).notNull(),     // "cpe_match" | "version_range" | "manual"
-    matchedVersion: varchar("matched_version", { length: 64 }),
-
-    // Linked finding (wenn CVE als finding eskaliert wurde)
-    findingId: integer("finding_id").references(() => findings.id, { onDelete: "set null" }),
-
-    // Lifecycle
-    notifiedAt: timestamp("notified_at"),
-    resolvedAt: timestamp("resolved_at"),
-    resolvedReason: text("resolved_reason"),
-
-    matchedAt: timestamp("matched_at").notNull().defaultNow(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id").references(() => entities.id, { onDelete: "set null" }),
+    workerRunId: integer("worker_run_id"),
+    rawCommand: text("raw_command").notNull(),
+    exitCode: integer("exit_code"),
+    startedAt: timestamp("started_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
 }, (t) => ({
-    assetIdx: index("secu_cve_match_asset_idx").on(t.assetId),
-    cveIdx: index("secu_cve_match_cve_idx").on(t.cveId),
-    uniqAssetCve: uniqueIndex("secu_cve_match_asset_cve_uniq").on(t.assetId, t.cveId, t.matchedVersion),
+    engagementIdx: index("secu_cmd_engagement_idx").on(t.engagementId),
+    workerRunIdx: index("secu_cmd_worker_run_idx").on(t.workerRunId),
 }));
 
 // ============================================================================
-// SCAN_POLICIES — automatisierte Scans
+// PLAYBOOK / WORKER RUNS
 // ============================================================================
 
-export const scanPolicies = pgTable("secu_scan_policies", {
+export const playbookRuns = pgTable("secu_playbook_runs", {
     id: serial("id").primaryKey(),
-    ownerUserId: integer("owner_user_id").references(() => users.id, { onDelete: "set null" }),
-
-    name: varchar("name", { length: 255 }).notNull(),
-    policyType: policyTypeEnum("policy_type").notNull(),
-
-    // Selection
-    assetSelector: jsonb("asset_selector").$type<{
-        ids?: number[];
-        tags?: string[];
-        kind?: string[];
-        ownInfrastructureOnly?: boolean;
-    }>().default({}).notNull(),
-
-    // Action
-    scanType: scanTypeEnum("scan_type"),
-    config: jsonb("config").$type<unknown>().default({}).notNull(),
-
-    // Schedule
-    cronSchedule: varchar("cron_schedule", { length: 64 }),    // "0 3 * * *" für daily 03:00
-    isActive: boolean("is_active").notNull().default(true),
-
-    // Lifecycle
-    lastRunAt: timestamp("last_run_at"),
-    nextRunAt: timestamp("next_run_at"),
-    lastRunStatus: varchar("last_run_status", { length: 32 }),
-
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    playbookKey: varchar("playbook_key", { length: 64 }).notNull(),
+    status: playbookRunStatusEnum("status").notNull().default("pending"),
+    /** "manual" | "rule:<rule_id>" | "schedule:<cron>" */
+    triggeredBy: varchar("triggered_by", { length: 128 }).notNull().default("manual"),
+    triggeredByUserId: integer("triggered_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    params: jsonb("params").$type<Record<string, unknown>>().notNull().default({}),
+    resultSummary: jsonb("result_summary").$type<Record<string, unknown>>().notNull().default({}),
+    startedAt: timestamp("started_at"),
+    finishedAt: timestamp("finished_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
-    activeIdx: index("secu_policies_active_idx").on(t.isActive),
-    nextRunIdx: index("secu_policies_next_run_idx").on(t.nextRunAt, t.isActive),
+    engagementIdx: index("secu_playbook_runs_engagement_idx").on(t.engagementId),
+    statusIdx: index("secu_playbook_runs_status_idx").on(t.status),
+    keyIdx: index("secu_playbook_runs_key_idx").on(t.playbookKey),
 }));
 
-// ============================================================================
-// PUBLIC_SCAN_LEADS — Lead-Pipeline aus Free-Scan
-// ============================================================================
-
-export const publicScanLeads = pgTable("secu_public_scan_leads", {
+export const workerRuns = pgTable("secu_worker_runs", {
     id: serial("id").primaryKey(),
-
-    // Was wurde gescannt
-    domain: varchar("domain", { length: 512 }).notNull(),
-    ipHash: varchar("ip_hash", { length: 64 }),               // Hash der Caller-IP für Rate-Limiting
-
-    // Lead-Daten (optional, je nach Funnel-Stage)
-    email: varchar("email", { length: 320 }),
-    name: varchar("name", { length: 255 }),
-    company: varchar("company", { length: 255 }),
-    phone: varchar("phone", { length: 64 }),
-
-    // Consent
-    agreedToFollowup: boolean("agreed_to_followup").notNull().default(false),
-    agreedAt: timestamp("agreed_at"),
-    consentText: text("consent_text"),                         // Volltext der akzeptierten Erklärung
-
-    // Funnel-Status
-    status: leadStatusEnum("status").notNull().default("new"),
-    statusNotes: text("status_notes"),
-
-    // Tracking
-    referrer: varchar("referrer", { length: 512 }),
-    utmSource: varchar("utm_source", { length: 128 }),
-    utmCampaign: varchar("utm_campaign", { length: 128 }),
-
-    // Conversion
-    convertedToCustomerAt: timestamp("converted_to_customer_at"),
-    convertedAssetId: integer("converted_asset_id").references(() => assets.id, { onDelete: "set null" }),
-
+    playbookRunId: integer("playbook_run_id").references(() => playbookRuns.id, { onDelete: "set null" }),
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id").references(() => entities.id, { onDelete: "set null" }),
+    workerKey: varchar("worker_key", { length: 64 }).notNull(),
+    status: workerRunStatusEnum("status").notNull().default("pending"),
+    provider: workerProviderEnum("provider").notNull().default("local"),
+    providerInstanceId: varchar("provider_instance_id", { length: 128 }),
+    providerRegion: varchar("provider_region", { length: 64 }),
+    logsRef: text("logs_ref"),
+    exitCode: integer("exit_code"),
+    error: text("error"),
+    durationMs: integer("duration_ms"),
+    startedAt: timestamp("started_at"),
+    finishedAt: timestamp("finished_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
-    domainIdx: index("secu_leads_domain_idx").on(t.domain),
-    statusIdx: index("secu_leads_status_idx").on(t.status),
-    emailIdx: index("secu_leads_email_idx").on(t.email),
-    ipHashRecentIdx: index("secu_leads_ip_recent_idx").on(t.ipHash, t.createdAt),
+    engagementIdx: index("secu_worker_runs_engagement_idx").on(t.engagementId),
+    playbookIdx: index("secu_worker_runs_playbook_idx").on(t.playbookRunId),
+    entityIdx: index("secu_worker_runs_entity_idx").on(t.entityId),
+    keyIdx: index("secu_worker_runs_key_idx").on(t.workerKey),
+    statusIdx: index("secu_worker_runs_status_idx").on(t.status),
 }));
 
 // ============================================================================
-// AUDIT_LOG — was hat wer wann gegen welches Asset getan
+// AUDIT_LOG — bekommt FK auf engagement_id (nullable für globale Events)
 // ============================================================================
+//
+// action-Beispiele:
+//   "engagement.create" | "engagement.archive" | "entity.create" | "entity.link"
+//   "playbook_run.start" | "playbook_run.finish" | "worker_run.start"
+//   "auth.grant" | "auth.verify" | "auth.revoke"
+// targetType-Werte:
+//   "engagement" | "entity" | "engagement_entity" | "playbook_run"
+//   "worker_run" | "finding" | "entity_authorization"
 
 export const securityAuditLog = pgTable("secu_audit_log", {
     id: serial("id").primaryKey(),
@@ -531,8 +448,10 @@ export const securityAuditLog = pgTable("secu_audit_log", {
     actorUserId: integer("actor_user_id").references(() => users.id, { onDelete: "set null" }),
     actorIpHash: varchar("actor_ip_hash", { length: 64 }),
 
-    action: varchar("action", { length: 64 }).notNull(),         // "asset.create", "scan.start", "auth.grant", "auth.revoke"
-    targetType: varchar("target_type", { length: 64 }),          // "asset" | "scan" | "authorization" | "finding"
+    engagementId: integer("engagement_id").references(() => engagements.id, { onDelete: "set null" }),
+
+    action: varchar("action", { length: 64 }).notNull(),
+    targetType: varchar("target_type", { length: 64 }),
     targetId: integer("target_id"),
 
     payload: jsonb("payload").$type<unknown>().default({}).notNull(),
@@ -544,41 +463,104 @@ export const securityAuditLog = pgTable("secu_audit_log", {
     actorIdx: index("secu_audit_actor_idx").on(t.actorUserId, t.createdAt),
     actionIdx: index("secu_audit_action_idx").on(t.action),
     targetIdx: index("secu_audit_target_idx").on(t.targetType, t.targetId),
+    engagementIdx: index("secu_audit_engagement_idx").on(t.engagementId),
 }));
 
 // ============================================================================
-// Type Exports — für Frontend & Service-Layer
+// Type Exports
 // ============================================================================
 
-export type Asset = typeof assets.$inferSelect;
-export type NewAsset = typeof assets.$inferInsert;
+export type Engagement = typeof engagements.$inferSelect;
+export type NewEngagement = typeof engagements.$inferInsert;
+export type EngagementKind = (typeof engagementKindEnum.enumValues)[number];
+export type EngagementStatus = (typeof engagementStatusEnum.enumValues)[number];
 
-export type AssetAuthorization = typeof assetAuthorizations.$inferSelect;
-export type NewAssetAuthorization = typeof assetAuthorizations.$inferInsert;
+export type Entity = typeof entities.$inferSelect;
+export type NewEntity = typeof entities.$inferInsert;
+export type EntityKind = (typeof entityKindEnum.enumValues)[number];
 
-export type Scan = typeof scans.$inferSelect;
-export type NewScan = typeof scans.$inferInsert;
+export type EntityRelationship = typeof entityRelationships.$inferSelect;
+export type NewEntityRelationship = typeof entityRelationships.$inferInsert;
 
-export type ScanJob = typeof scanJobs.$inferSelect;
-export type NewScanJob = typeof scanJobs.$inferInsert;
+/** Bekannter Kanon der Beziehungstypen — nicht erschöpfend, OSINT kann Neue einführen. */
+export type RelationshipKind =
+    | "employs" | "works_with" | "subsidiary_of" | "parent_of" | "supplies"
+    | "customer_of" | "member_of" | "located_at"
+    | "owns_credential" | "uses_credential"
+    | "owns" | "operates"
+    | "resolves_to" | "hosted_on" | "runs_on"
+    | "uses_tech" | "linked_to"
+    | string;
+
+export type EntityTag = typeof entityTags.$inferSelect;
+export type NewEntityTag = typeof entityTags.$inferInsert;
+
+export type EngagementEntity = typeof engagementEntities.$inferSelect;
+export type NewEngagementEntity = typeof engagementEntities.$inferInsert;
+export type EngagementEntityRole = (typeof engagementEntityRoleEnum.enumValues)[number];
+
+export type EntityAuthorization = typeof entityAuthorizations.$inferSelect;
+export type NewEntityAuthorization = typeof entityAuthorizations.$inferInsert;
+export type AuthorizationKind = (typeof authorizationKindEnum.enumValues)[number];
+export type AuthorizationScope = (typeof authorizationScopeEnum.enumValues)[number];
+export type AuthorizationProofType = (typeof authorizationProofTypeEnum.enumValues)[number];
 
 export type Finding = typeof findings.$inferSelect;
 export type NewFinding = typeof findings.$inferInsert;
+export type FindingStatus = (typeof findingStatusEnum.enumValues)[number];
+export type FindingCategory = (typeof findingCategoryEnum.enumValues)[number];
+export type Severity = (typeof severityEnum.enumValues)[number];
 
-export type TechFingerprint = typeof techFingerprints.$inferSelect;
-export type NewTechFingerprint = typeof techFingerprints.$inferInsert;
+export type Artifact = typeof artifacts.$inferSelect;
+export type NewArtifact = typeof artifacts.$inferInsert;
+export type ArtifactKind = (typeof artifactKindEnum.enumValues)[number];
 
-export type CveRecord = typeof cveRecords.$inferSelect;
-export type NewCveRecord = typeof cveRecords.$inferInsert;
+export type CommandHistoryEntry = typeof commandHistory.$inferSelect;
+export type NewCommandHistoryEntry = typeof commandHistory.$inferInsert;
 
-export type CveMatch = typeof cveMatches.$inferSelect;
-export type NewCveMatch = typeof cveMatches.$inferInsert;
+export type PlaybookRun = typeof playbookRuns.$inferSelect;
+export type NewPlaybookRun = typeof playbookRuns.$inferInsert;
+export type PlaybookRunStatus = (typeof playbookRunStatusEnum.enumValues)[number];
 
-export type ScanPolicy = typeof scanPolicies.$inferSelect;
-export type NewScanPolicy = typeof scanPolicies.$inferInsert;
-
-export type PublicScanLead = typeof publicScanLeads.$inferSelect;
-export type NewPublicScanLead = typeof publicScanLeads.$inferInsert;
+export type WorkerRun = typeof workerRuns.$inferSelect;
+export type NewWorkerRun = typeof workerRuns.$inferInsert;
+export type WorkerRunStatus = (typeof workerRunStatusEnum.enumValues)[number];
+export type WorkerProvider = (typeof workerProviderEnum.enumValues)[number];
 
 export type SecurityAuditLog = typeof securityAuditLog.$inferSelect;
 export type NewSecurityAuditLog = typeof securityAuditLog.$inferInsert;
+
+// ============================================================================
+// Hilfs-Shapes für API-Responses (engagement-graph etc.)
+// ============================================================================
+
+/** Cytoscape-kompatibler Graph-Snapshot eines Engagements. */
+export type EngagementGraph = {
+    engagementId: number;
+    nodes: Array<{
+        data: {
+            id: string;
+            label: string;
+            kind: EntityKind;
+            entityId: number;
+            role: EngagementEntityRole | null;
+            tags: string[];
+        };
+    }>;
+    edges: Array<{
+        data: {
+            id: string;
+            source: string;
+            target: string;
+            kind: string;
+            confidence: number;
+        };
+    }>;
+};
+
+/** Engagement inkl. eingebettetem Graph-Snapshot — für GET /engagements/:id. */
+export type EngagementWithGraph = Engagement & {
+    graph: EngagementGraph;
+    entityCount: number;
+    findingCount: number;
+};

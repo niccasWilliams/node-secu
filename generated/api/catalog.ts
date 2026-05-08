@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-04T18:32:46.349Z
+// Generated at: 2026-05-08T00:05:39.695Z
 // Run `pnpm run api:generate` to regenerate
 
 export type RouteGroup = { key: string; module: string };
@@ -22,7 +22,10 @@ export const apiMountPrefixes = {
   "/users",
   "/webhooks"
 ],
-  features: [],
+  features: [
+  "/engagements",
+  "/entities"
+],
 } as const;
 
 export const apiGroups = {
@@ -97,6 +100,18 @@ export const apiGroups = {
   {
     "key": "roles",
     "module": "./base/routes.roles"
+  },
+  {
+    "key": "secu_engagements",
+    "module": "./features/routes.secu_engagements"
+  },
+  {
+    "key": "secu_entities",
+    "module": "./features/routes.secu_entities"
+  },
+  {
+    "key": "secu_playbooks",
+    "module": "./features/routes.secu_playbooks"
   },
   {
     "key": "settings",

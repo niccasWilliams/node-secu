@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-04T18:32:46.349Z
+// Generated at: 2026-05-08T00:05:39.694Z
 // Run `pnpm run api:generate` to regenerate
 
 export * from "./types";
@@ -13,6 +13,9 @@ export * from "./base/routes.logs";
 export * from "./base/routes.oauth2";
 export * from "./base/routes.permissions";
 export * from "./base/routes.roles";
+export * from "./features/routes.secu_engagements";
+export * from "./features/routes.secu_entities";
+export * from "./features/routes.secu_playbooks";
 export * from "./base/routes.settings";
 export * from "./base/routes.user_activity";
 export * from "./base/routes.users";
@@ -28,6 +31,9 @@ import { apiRoutes_logs } from "./base/routes.logs";
 import { apiRoutes_oauth2 } from "./base/routes.oauth2";
 import { apiRoutes_permissions } from "./base/routes.permissions";
 import { apiRoutes_roles } from "./base/routes.roles";
+import { apiRoutes_secu_engagements } from "./features/routes.secu_engagements";
+import { apiRoutes_secu_entities } from "./features/routes.secu_entities";
+import { apiRoutes_secu_playbooks } from "./features/routes.secu_playbooks";
 import { apiRoutes_settings } from "./base/routes.settings";
 import { apiRoutes_user_activity } from "./base/routes.user_activity";
 import { apiRoutes_users } from "./base/routes.users";
@@ -43,6 +49,9 @@ export const apiRoutes = {
   ...apiRoutes_oauth2,
   ...apiRoutes_permissions,
   ...apiRoutes_roles,
+  ...apiRoutes_secu_engagements,
+  ...apiRoutes_secu_entities,
+  ...apiRoutes_secu_playbooks,
   ...apiRoutes_settings,
   ...apiRoutes_user_activity,
   ...apiRoutes_users,

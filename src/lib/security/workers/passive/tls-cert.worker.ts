@@ -16,14 +16,16 @@ export const tlsCertWorker: SecurityWorker = {
     description: "TLS-Zertifikat: Validität, Restlaufzeit, SAN-Match, Protokoll-Version.",
     defaultTimeoutMs: 15_000,
 
-    isApplicable(asset) {
-        return asset.kind === "domain" || asset.kind === "subdomain" || asset.kind === "url";
+    isApplicable(target) {
+        return target.kind === "asset_domain" || target.kind === "asset_subdomain"
+            || target.kind === "asset_url" || target.kind === "domain"
+            || target.kind === "subdomain" || target.kind === "url";
     },
 
     async run(ctx: WorkerContext): Promise<WorkerResult> {
         const start = Date.now();
         const findings: FindingDraft[] = [];
-        const host = hostFromAsset(ctx.asset.value);
+        const host = hostFromTargetValue(ctx.target.value);
 
         try {
             const cert = await fetchCert(host, 443, ctx.timeoutMs);
@@ -100,7 +102,7 @@ export const tlsCertWorker: SecurityWorker = {
     },
 };
 
-function hostFromAsset(value: string): string {
+function hostFromTargetValue(value: string): string {
     if (value.startsWith("http")) {
         try {
             return new URL(value).hostname;
