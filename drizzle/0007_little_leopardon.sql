@@ -1,1 +1,0 @@
-ALTER TYPE "public"."secu_finding_category" ADD VALUE 'compliance_imprint';

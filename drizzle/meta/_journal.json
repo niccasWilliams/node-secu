@@ -5,78 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1777920454853,
-      "tag": "0000_outgoing_menace",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1778195453619,
-      "tag": "0001_stiff_scarlet_spider",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1778199737984,
-      "tag": "0002_rainy_triton",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1778200400590,
-      "tag": "0003_brainy_morlun",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1778230079256,
-      "tag": "0004_dazzling_kate_bishop",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1778263333636,
-      "tag": "0005_complex_weapon_omega",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1778264141951,
-      "tag": "0006_friendly_doctor_strange",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1778265232860,
-      "tag": "0007_little_leopardon",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1778265954705,
-      "tag": "0008_outgoing_fenris",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1778266429501,
-      "tag": "0009_gigantic_princess_powerful",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1778267528866,
-      "tag": "0010_complete_cerebro",
+      "when": 1778269906249,
+      "tag": "0000_previous_snowbird",
       "breakpoints": true
     }
   ]
