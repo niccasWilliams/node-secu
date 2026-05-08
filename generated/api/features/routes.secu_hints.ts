@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:16.140Z
+// Generated at: 2026-05-08T20:46:59.190Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEngagementHintsListParams = {
@@ -7,7 +7,17 @@ export type SecuEngagementHintsListParams = {
 };
 export type SecuEngagementHintsListQuery = undefined;
 export type SecuEngagementHintsListBody = undefined;
-export type SecuEngagementHintsListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementHintsListResponseData = Array<{
+  id: number;
+  engagementId: number;
+  slot: "owner_name" | "owner_city" | "owner_company" | "owner_known_email" | "owner_known_username" | "owner_alt_domain" | "industry" | "free_text";
+  value: string;
+  source: string | null;
+  notes: string | null;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+}>;
 export type SecuEngagementHintsListResponse = import("../types").ApiEnvelope<SecuEngagementHintsListResponseData>;
 
 export type SecuEngagementHintsCreateParams = {
@@ -22,7 +32,17 @@ export type SecuEngagementHintsCreateBody = {
   notes?: string | null;
 }>;
 };
-export type SecuEngagementHintsCreateResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementHintsCreateResponseData = Array<{
+  id: number;
+  engagementId: number;
+  slot: "owner_name" | "owner_city" | "owner_company" | "owner_known_email" | "owner_known_username" | "owner_alt_domain" | "industry" | "free_text";
+  value: string;
+  source: string | null;
+  notes: string | null;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+}>;
 export type SecuEngagementHintsCreateResponse = import("../types").ApiEnvelope<SecuEngagementHintsCreateResponseData>;
 
 export type SecuEngagementHintsPatchParams = {
@@ -35,7 +55,17 @@ export type SecuEngagementHintsPatchBody = {
   source?: string | null;
   notes?: string | null;
 };
-export type SecuEngagementHintsPatchResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementHintsPatchResponseData = {
+  id: number;
+  engagementId: number;
+  slot: "owner_name" | "owner_city" | "owner_company" | "owner_known_email" | "owner_known_username" | "owner_alt_domain" | "industry" | "free_text";
+  value: string;
+  source: string | null;
+  notes: string | null;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+};
 export type SecuEngagementHintsPatchResponse = import("../types").ApiEnvelope<SecuEngagementHintsPatchResponseData>;
 
 export type SecuEngagementHintsDeleteParams = {
@@ -44,7 +74,7 @@ export type SecuEngagementHintsDeleteParams = {
 };
 export type SecuEngagementHintsDeleteQuery = undefined;
 export type SecuEngagementHintsDeleteBody = undefined;
-export type SecuEngagementHintsDeleteResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementHintsDeleteResponseData = null;
 export type SecuEngagementHintsDeleteResponse = import("../types").ApiEnvelope<SecuEngagementHintsDeleteResponseData>;
 
 export const apiRoutes_secu_hints = {

@@ -10,9 +10,13 @@ import type {
     EntityCreateBody,
     EntityEnrichFullBody,
     EntityListQuery,
+    EntityPatchBody,
     EntityRelationshipBody,
     EntityTagBody,
 } from "./entity.dto";
+import { database } from "@/db";
+import { entities } from "@/db/individual/individual-schema";
+import { eq } from "drizzle-orm";
 
 function v<T>(req: Request, key: "params" | "query" | "body"): T {
     return ((req as ValidatedRequest).validated?.[key] ?? {}) as T;
@@ -144,6 +148,49 @@ class EntityController {
                 },
             });
             return responseHandler(res, 202, undefined, result);
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    /**
+     * PATCH /entities/:id — operator-edit. `data` wird gemerged (kein Replace),
+     * displayName wird ersetzt. Publish entity.updated über entityService.patchData.
+     */
+    async patch(req: Request, res: Response) {
+        try {
+            const { id } = v<{ id: number }>(req, "params");
+            const body = v<EntityPatchBody>(req, "body");
+            const userId = (await getUserIdFromRequest(req)) ?? null;
+
+            let updated = await entityService.getById(id);
+            if (!updated) return responseHandler(res, 404, "Entity not found");
+
+            if (body.displayName != null) {
+                const [row] = await database
+                    .update(entities)
+                    .set({ displayName: body.displayName, lastSeenAt: new Date() })
+                    .where(eq(entities.id, id))
+                    .returning();
+                if (row) updated = row;
+            }
+
+            if (body.data != null) {
+                updated = (await entityService.patchData(id, body.data)) ?? updated;
+            }
+
+            await auditLogService.log({
+                action: "entity.patch",
+                actorUserId: userId,
+                targetType: "entity",
+                targetId: id,
+                payload: {
+                    displayName: body.displayName != null,
+                    dataKeys: body.data ? Object.keys(body.data) : [],
+                },
+            });
+
+            return responseHandler(res, 200, undefined, updated);
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");
         }

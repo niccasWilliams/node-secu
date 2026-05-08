@@ -8,7 +8,6 @@
 //   DELETE /rules/:id        → Löschen
 
 import { Router } from "express";
-import { z } from "zod";
 import { AccessControl } from "@/routes/middleware";
 import { createContractRouter } from "@/api-contract/contract-router";
 import { contract, validate } from "@/api-contract/contract.middleware";
@@ -19,6 +18,11 @@ import {
     ruleParamSchema,
     ruleUpdateBodySchema,
 } from "./rule.dto";
+import {
+    noDataSchema,
+    okSchema,
+    ruleSchema,
+} from "../security-response.dto";
 
 const c = createContractRouter("/rules", { tags: ["secu-rules"] });
 const router: Router = c.router;
@@ -33,7 +37,7 @@ c.get(
         summary: "List rules (filter by trigger, enabled, scope)",
         auth: { type: "frontend_bearer_http" },
         request: { query: ruleListQuerySchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: ruleSchema.array() }],
     }),
     ruleController.list.bind(ruleController),
 );
@@ -47,8 +51,8 @@ c.get(
         auth: { type: "frontend_bearer_http" },
         request: { params: ruleParamSchema },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: ruleSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     ruleController.get.bind(ruleController),
@@ -62,7 +66,7 @@ c.post(
         summary: "Create a declarative rule",
         auth: { type: "frontend_bearer_http" },
         request: { body: ruleCreateBodySchema, bodyContentType: "application/json" },
-        responses: [{ kind: "json", status: 201, data: z.any() }],
+        responses: [{ kind: "json", status: 201, data: ruleSchema }],
     }),
     ruleController.create.bind(ruleController),
 );
@@ -76,8 +80,8 @@ c.patch(
         auth: { type: "frontend_bearer_http" },
         request: { params: ruleParamSchema, body: ruleUpdateBodySchema, bodyContentType: "application/json" },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: ruleSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     ruleController.update.bind(ruleController),
@@ -92,8 +96,8 @@ c.delete(
         auth: { type: "frontend_bearer_http" },
         request: { params: ruleParamSchema },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: okSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     ruleController.remove.bind(ruleController),

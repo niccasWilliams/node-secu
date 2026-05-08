@@ -19,6 +19,11 @@ export type RuleListFilters = {
     trigger?: RuleTrigger;
     enabled?: boolean;
     scope?: string;
+    limit?: number;
+    offset?: number;
+    sortBy?: "createdAt" | "updatedAt" | "name" | "fireCount" | "lastFiredAt";
+    order?: "asc" | "desc";
+    search?: string;
 };
 
 export type RuleCreateInput = {
@@ -43,11 +48,34 @@ export const ruleService = {
         if (filters.trigger) conditions.push(eq(rules.trigger, filters.trigger));
         if (filters.enabled !== undefined) conditions.push(eq(rules.enabled, filters.enabled));
         if (filters.scope) conditions.push(eq(rules.scope, filters.scope));
-        return database
+        if (filters.search && filters.search.trim()) {
+            const term = `%${filters.search.trim()}%`;
+            conditions.push(sql`(${rules.name} ILIKE ${term} OR ${rules.description} ILIKE ${term})`);
+        }
+
+        const sortColumn = (() => {
+            switch (filters.sortBy) {
+                case "updatedAt": return rules.updatedAt;
+                case "name": return rules.name;
+                case "fireCount": return rules.fireCount;
+                case "lastFiredAt": return rules.lastFiredAt;
+                case "createdAt": return rules.createdAt;
+                default: return null;
+            }
+        })();
+        const orderClause = sortColumn
+            ? [filters.order === "asc" ? asc(sortColumn) : desc(sortColumn)]
+            : [desc(rules.enabled), asc(rules.id)];
+
+        let query = database
             .select()
             .from(rules)
             .where(conditions.length ? and(...conditions) : undefined)
-            .orderBy(desc(rules.enabled), asc(rules.id));
+            .orderBy(...orderClause)
+            .$dynamic();
+        if (filters.limit != null) query = query.limit(filters.limit);
+        if (filters.offset != null) query = query.offset(filters.offset);
+        return query;
     },
 
     async getById(id: number): Promise<Rule | null> {

@@ -15,7 +15,8 @@ import { rules } from "@/db/individual/individual-schema";
 import { ruleService } from "./rules/rule.service";
 import { setAuthorizationResolver } from "./authorization/authorization.service";
 import { entityAuthorizationResolver } from "./authorization/entity-resolver";
-import { registerPlaybook } from "./playbooks/playbook-registry";
+import { registerPlaybook, getPlaybook } from "./playbooks/playbook-registry";
+import { PLAYBOOK_KEYS } from "./playbooks/playbook-keys";
 import { webReconPassivePlaybook } from "./playbooks/definitions/web-recon-passive";
 import { webReconActivePlaybook } from "./playbooks/definitions/web-recon-active";
 import { osintEmailPassivePlaybook } from "./playbooks/definitions/osint-email-passive";
@@ -26,6 +27,7 @@ import { osintGithubAccountReconPlaybook } from "./playbooks/definitions/osint-g
 import { apiSecurityActivePlaybook } from "./playbooks/definitions/api-security-active";
 import { startRuleEvaluator } from "./rules/rule-evaluator";
 import { secuEventBus } from "./rules/event-bus";
+import { registerSecuStreams, startSecuEventBridge } from "./realtime/secu-streams";
 import { infrastructureProviderService } from "./osint/infrastructure-providers/provider.service";
 
 let bootstrapped = false;
@@ -57,8 +59,25 @@ export function bootstrapSecurityDomain(): void {
     // als rest_api markiert — siehe seed-rule "service_classify rest_api → api_security_active").
     registerPlaybook(apiSecurityActivePlaybook);
 
+    // Drift-Schutz: Jeder Key in PLAYBOOK_KEYS (Source-of-Truth fürs
+    // Frontend-Enum) muss tatsächlich registriert sein. Wenn nicht, fail
+    // fast — sonst weicht das Frontend-Enum vom Runtime-Stand ab.
+    for (const key of PLAYBOOK_KEYS) {
+        if (!getPlaybook(key)) {
+            throw new Error(
+                `[secu bootstrap] PLAYBOOK_KEYS contains "${key}" but no definition is registered. ` +
+                `Register it in bootstrap.ts or remove it from playbook-keys.ts.`,
+            );
+        }
+    }
+
     // Phase-2.5 Rule-Evaluator — abonniert Bus, evaluiert enabled rules.
     startRuleEvaluator();
+
+    // Realtime-Layer: Topic-basierte WebSocket-Streams + EventBus → Stream-Bridge.
+    // FE abonniert z.B. `secu:engagement:42` und bekommt alle Events live.
+    registerSecuStreams();
+    startSecuEventBridge();
 
     // Phase-2.7 — Cross-Engagement-Hit Direct-Listener.
     // Bewusst NICHT als DB-Rule, weil ruleTriggerEnum entity.cross_engagement_hit

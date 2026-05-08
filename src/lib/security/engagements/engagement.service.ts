@@ -9,6 +9,7 @@ import {
     artifacts,
     engagementEntities,
     engagements,
+    entities,
     entityAuthorizations,
     type Engagement,
     type EngagementEntityRole,
@@ -18,6 +19,7 @@ import {
     type AuthorizationKind,
     type AuthorizationScope,
     type AuthorizationProofType,
+    type EntityAuthorization,
 } from "@/db/individual/individual-schema";
 import { entityService } from "../entities/entity.service";
 
@@ -140,17 +142,41 @@ export const engagementService = {
         includeArchived?: boolean;
         kind?: EngagementKind;
         ownerUserId?: number;
+        limit?: number;
+        offset?: number;
+        sortBy?: "createdAt" | "updatedAt" | "name" | "status";
+        order?: "asc" | "desc";
+        search?: string;
     }): Promise<Engagement[]> {
         const conditions: SQL[] = [];
         if (!opts?.includeArchived) conditions.push(isNull(engagements.archivedAt));
         if (opts?.kind) conditions.push(eq(engagements.kind, opts.kind));
         if (opts?.ownerUserId != null) conditions.push(eq(engagements.ownerUserId, opts.ownerUserId));
+        if (opts?.search && opts.search.trim()) {
+            const term = `%${opts.search.trim()}%`;
+            conditions.push(sql`(${engagements.name} ILIKE ${term} OR ${engagements.scopeSummary} ILIKE ${term})`);
+        }
 
-        return database
+        const sortColumn = (() => {
+            switch (opts?.sortBy) {
+                case "updatedAt": return engagements.updatedAt;
+                case "name": return engagements.name;
+                case "status": return engagements.status;
+                case "createdAt":
+                default: return engagements.createdAt;
+            }
+        })();
+        const direction = opts?.order === "asc" ? sortColumn : desc(sortColumn);
+
+        let query = database
             .select()
             .from(engagements)
             .where(conditions.length ? and(...conditions) : undefined)
-            .orderBy(desc(engagements.createdAt));
+            .orderBy(direction)
+            .$dynamic();
+        if (opts?.limit != null) query = query.limit(opts.limit);
+        if (opts?.offset != null) query = query.offset(opts.offset);
+        return query;
     },
 
     async getById(id: number): Promise<Engagement | null> {
@@ -249,7 +275,6 @@ export const engagementService = {
         if (links.length === 0) return [];
 
         const entityIds = links.map((l) => l.entityId);
-        const { entities } = await import("@/db/individual/individual-schema");
         const ents = await database.select().from(entities).where(inArray(entities.id, entityIds));
         const map = new Map(ents.map((e) => [e.id, e]));
 
@@ -302,6 +327,56 @@ export const engagementService = {
             .orderBy(desc(entityAuthorizations.createdAt));
     },
 
+    async listAuthorizationsForEngagement(engagementId: number): Promise<Array<EntityAuthorization & { entity: Entity | null }>> {
+        const links = await database
+            .select({ entityId: engagementEntities.entityId })
+            .from(engagementEntities)
+            .where(eq(engagementEntities.engagementId, engagementId));
+        if (links.length === 0) return [];
+
+        const entityIds = links.map((l) => l.entityId);
+        const [authRows, ents] = await Promise.all([
+            database
+                .select()
+                .from(entityAuthorizations)
+                .where(inArray(entityAuthorizations.entityId, entityIds))
+                .orderBy(desc(entityAuthorizations.createdAt)),
+            database.select().from(entities).where(inArray(entities.id, entityIds)),
+        ]);
+        const entityById = new Map(ents.map((entity) => [entity.id, entity]));
+        return authRows.map((auth) => ({ ...auth, entity: entityById.get(auth.entityId) ?? null }));
+    },
+
+    async revokeAuthorizationInEngagement(input: {
+        engagementId: number;
+        authorizationId: number;
+        revokedBy?: number | null;
+    }): Promise<EntityAuthorization | null> {
+        const [existing] = await database
+            .select({ authorizationId: entityAuthorizations.id })
+            .from(entityAuthorizations)
+            .innerJoin(
+                engagementEntities,
+                and(
+                    eq(engagementEntities.engagementId, input.engagementId),
+                    eq(engagementEntities.entityId, entityAuthorizations.entityId),
+                ),
+            )
+            .where(eq(entityAuthorizations.id, input.authorizationId))
+            .limit(1);
+        if (!existing) return null;
+
+        const [updated] = await database
+            .update(entityAuthorizations)
+            .set({
+                revokedAt: new Date(),
+                revokedBy: input.revokedBy ?? null,
+            })
+            .where(eq(entityAuthorizations.id, input.authorizationId))
+            .returning();
+        return updated ?? null;
+    },
+
     // ─── Notes (Convenience) ────────────────────────────────────────────
 
     async addNote(input: {
@@ -340,4 +415,3 @@ export const engagementService = {
         return { entityCount: eRow?.cnt ?? 0, findingCount: fRow?.cnt ?? 0 };
     },
 };
-

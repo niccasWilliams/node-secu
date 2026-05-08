@@ -11,7 +11,6 @@
 // Router verteilt werden.
 
 import { Router } from "express";
-import { z } from "zod";
 import { AccessControl } from "@/routes/middleware";
 import { createContractRouter } from "@/api-contract/contract-router";
 import { contract, validate } from "@/api-contract/contract.middleware";
@@ -20,8 +19,18 @@ import {
     playbookKeyParamSchema,
     playbookRunGetParamSchema,
     playbookRunListParamSchema,
+    playbookRunListQuerySchema,
     playbookStartBodySchema,
 } from "./playbook.dto";
+import {
+    noDataSchema,
+    playbookBlockedResponseSchema,
+    playbookRegistryItemSchema,
+    playbookRunLeanStatusSchema,
+    playbookRunSchema,
+    playbookRunStatusReportSchema,
+    playbookStartResponseSchema,
+} from "../security-response.dto";
 
 const c = createContractRouter("/", { tags: ["secu-playbooks"] });
 const router: Router = c.router;
@@ -35,7 +44,7 @@ c.get(
         summary: "List all registered playbooks (registry view)",
         auth: { type: "frontend_bearer_http" },
         request: {},
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: playbookRegistryItemSchema.array() }],
     }),
     playbookController.listRegistry.bind(playbookController),
 );
@@ -57,9 +66,10 @@ c.post(
             bodyContentType: "application/json",
         },
         responses: [
-            { kind: "json", status: 202, data: z.any() },
-            { kind: "json", status: 400, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 202, data: playbookStartResponseSchema },
+            { kind: "json", status: 400, data: noDataSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+            { kind: "json", status: 429, data: playbookBlockedResponseSchema },
         ],
     }),
     playbookController.start.bind(playbookController),
@@ -67,13 +77,13 @@ c.post(
 
 c.get(
     "/engagements/:id/playbooks/runs",
-    validate({ params: playbookRunListParamSchema }),
+    validate({ params: playbookRunListParamSchema, query: playbookRunListQuerySchema }),
     contract({
         operationId: "secu_playbook_run_list",
-        summary: "List playbook runs for an engagement",
+        summary: "List playbook runs for an engagement (paginated, filterable by status/playbookKey)",
         auth: { type: "frontend_bearer_http" },
-        request: { params: playbookRunListParamSchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        request: { params: playbookRunListParamSchema, query: playbookRunListQuerySchema },
+        responses: [{ kind: "json", status: 200, data: playbookRunSchema.array() }],
     }),
     playbookController.listRuns.bind(playbookController),
 );
@@ -87,11 +97,40 @@ c.get(
         auth: { type: "frontend_bearer_http" },
         request: { params: playbookRunGetParamSchema },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: playbookRunStatusReportSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     playbookController.getRun.bind(playbookController),
+);
+
+c.get(
+    "/engagements/:id/playbooks/runs/:runId/status",
+    validate({ params: playbookRunGetParamSchema }),
+    contract({
+        operationId: "secu_playbook_run_status",
+        summary: "Lean playbook run status for polling; sends ETag and supports If-None-Match",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: playbookRunGetParamSchema },
+        responses: [
+            { kind: "json", status: 200, data: playbookRunLeanStatusSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    playbookController.getRunLeanStatus.bind(playbookController),
+);
+
+c.get(
+    "/engagements/:id/playbooks/runs/:runId/events",
+    validate({ params: playbookRunGetParamSchema }),
+    contract({
+        operationId: "secu_playbook_run_events",
+        summary: "Server-Sent Events stream for playbook run status changes",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: playbookRunGetParamSchema },
+        responses: [{ kind: "binary", status: 200, contentType: "text/event-stream" }],
+    }),
+    playbookController.streamRunEvents.bind(playbookController),
 );
 
 export default router;

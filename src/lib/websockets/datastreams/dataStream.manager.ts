@@ -1,7 +1,8 @@
-import { DataStreamContext, DataStreamKey, DataStreamPayload, DataStreamRegistration, DataStreamSnapshotResolver, DataStreamTransport } from "./dataStream.types";
+import { DataStreamContext, DataStreamKey, DataStreamPatternRegistration, DataStreamPayload, DataStreamRegistration, DataStreamSnapshotResolver, DataStreamTransport } from "./dataStream.types";
 
 class DataStreamManager {
     private streams = new Map<DataStreamKey, DataStreamRegistration>();
+    private patterns: DataStreamPatternRegistration[] = [];
     private transport?: DataStreamTransport;
 
     registerStream(registration: DataStreamRegistration): void {
@@ -11,12 +12,28 @@ class DataStreamManager {
         this.streams.set(registration.key, registration);
     }
 
+    /**
+     * Pattern-Registrierung für dynamische Stream-Keys. Wird genutzt für
+     * topic-artige Streams wie `secu:engagement:42` — der Manager matched
+     * den Key beim Subscribe gegen alle Patterns und delegiert an die Factory.
+     */
+    registerStreamPattern(pattern: DataStreamPatternRegistration): void {
+        this.patterns.push(pattern);
+    }
+
     listStreams(): DataStreamRegistration[] {
         return Array.from(this.streams.values());
     }
 
     getStream(key: DataStreamKey): DataStreamRegistration | undefined {
-        return this.streams.get(key);
+        const exact = this.streams.get(key);
+        if (exact) return exact;
+        for (const pattern of this.patterns) {
+            if (pattern.matcher(key)) {
+                return pattern.factory(key);
+            }
+        }
+        return undefined;
     }
 
     async getInitialSnapshot(key: DataStreamKey, context: DataStreamContext): Promise<any> {

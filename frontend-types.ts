@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:14.859Z
+// Generated at: 2026-05-08T21:27:22.916Z
 // Run `npm run types:generate` to regenerate this file
 
 // ============================================================================
@@ -24,7 +24,8 @@ export type EngagementStatus = 'planning' | 'active' | 'paused' | 'completed' | 
 export type EntityKind = 'asset_domain' | 'asset_subdomain' | 'asset_ip' | 'asset_host' | 'asset_url' | 'person' | 'organization' | 'location' | 'credential_ref' | 'document' | 'email_address' | 'username' | 'phone_number' | 'social_account' | 'infrastructure_provider';
 export type InfrastructureProviderCategory = 'dns_provider' | 'registrar' | 'hosting' | 'cdn' | 'email_provider' | 'analytics' | 'social_platform';
 export type EngagementEntityRole = 'primary_target' | 'in_scope' | 'out_of_scope' | 'pivot' | 'context';
-export type FindingStatus = 'open' | 'triaged' | 'confirmed' | 'false_positive' | 'fixed';
+export type FindingStatus = 'open' | 'triaged' | 'confirmed' | 'false_positive' | 'wont_fix' | 'fixed';
+export type FindingTriageReason = 'irrelevant_legacy' | 'compensating_control' | 'accepted_risk' | 'duplicate' | 'manual_review_pending' | 'customer_approved' | 'scoping_excluded' | 'other';
 export type FindingCategory = 'dns' | 'email_security' | 'tls' | 'http_headers' | 'exposure' | 'cms' | 'auth' | 'injection' | 'cve' | 'config' | 'deps' | 'cert' | 'phishing' | 'leak' | 'compliance_imprint';
 export type ArtifactKind = 'screenshot' | 'file' | 'command_output' | 'pcap' | 'credential_dump' | 'note';
 export type PlaybookRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
@@ -715,8 +716,19 @@ export type Finding = {
   recommendation: string | null;
   cveIds: any;
   cvssScore: string | null;
-  discoveredAt: Date;
+  /**
+   * Operator-Triage-Layer.
+   * `triageReason` + `triageNote` werden gesetzt sobald der Operator den Status
+   * ändert. `resolutionNote` + `resolvedAt` + `resolvedBy` füllen sich nur bei
+   * den End-Status fixed/wont_fix/false_positive — daraus generiert das Reporting
+   * die "Wie wurde das behoben"-Spalte.
+   */
+  triageReason: FindingTriageReason | null;
+  triageNote: string | null;
+  resolutionNote: string | null;
   resolvedAt: Date | null;
+  resolvedBy: number | null;
+  discoveredAt: Date;
 };
 
 export type NewFinding = {
@@ -733,8 +745,36 @@ export type NewFinding = {
   recommendation?: string | null;
   cveIds?: any;
   cvssScore?: string | null;
-  discoveredAt?: Date;
+  /**
+   * Operator-Triage-Layer.
+   * `triageReason` + `triageNote` werden gesetzt sobald der Operator den Status
+   * ändert. `resolutionNote` + `resolvedAt` + `resolvedBy` füllen sich nur bei
+   * den End-Status fixed/wont_fix/false_positive — daraus generiert das Reporting
+   * die "Wie wurde das behoben"-Spalte.
+   */
+  triageReason?: FindingTriageReason | null;
+  triageNote?: string | null;
+  resolutionNote?: string | null;
   resolvedAt?: Date | null;
+  resolvedBy?: number | null;
+  discoveredAt?: Date;
+};
+
+export type FindingComment = {
+  id: number;
+  findingId: number;
+  userId: number | null;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type NewFindingComment = {
+  findingId: number;
+  userId?: number | null;
+  body: string;
+  createdAt?: Date;
+  updatedAt?: Date | null;
 };
 
 export type Artifact = {

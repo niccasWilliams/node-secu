@@ -147,7 +147,24 @@ export const findingStatusEnum = pgEnum("secu_finding_status", [
     "triaged",
     "confirmed",
     "false_positive",
+    "wont_fix",
     "fixed",
+]);
+
+/**
+ * Operator-Begründung beim Triage. Steuert wie Findings im Reporting/Dashboard
+ * gruppiert werden und welche Erinnerungen das Frontend zeigt (z.B. "manual_review_pending"
+ * → in der Inbox sichtbar, "accepted_risk" → ausgeblendet).
+ */
+export const findingTriageReasonEnum = pgEnum("secu_finding_triage_reason", [
+    "irrelevant_legacy",
+    "compensating_control",
+    "accepted_risk",
+    "duplicate",
+    "manual_review_pending",
+    "customer_approved",
+    "scoping_excluded",
+    "other",
 ]);
 
 export const findingCategoryEnum = pgEnum("secu_finding_category", [
@@ -519,14 +536,39 @@ export const findings = pgTable("secu_findings", {
     cveIds: jsonb("cve_ids").$type<string[]>().notNull().default([]),
     cvssScore: varchar("cvss_score", { length: 16 }),
 
-    discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
+    // Operator-Triage-Layer.
+    // `triageReason` + `triageNote` werden gesetzt sobald der Operator den Status
+    // ändert. `resolutionNote` + `resolvedAt` + `resolvedBy` füllen sich nur bei
+    // den End-Status fixed/wont_fix/false_positive — daraus generiert das Reporting
+    // die "Wie wurde das behoben"-Spalte.
+    triageReason: findingTriageReasonEnum("triage_reason"),
+    triageNote: text("triage_note"),
+    resolutionNote: text("resolution_note"),
     resolvedAt: timestamp("resolved_at"),
+    resolvedBy: integer("resolved_by").references(() => users.id, { onDelete: "set null" }),
+
+    discoveredAt: timestamp("discovered_at").notNull().defaultNow(),
 }, (t) => ({
     engagementIdx: index("secu_findings_engagement_idx").on(t.engagementId),
     entityIdx: index("secu_findings_entity_idx").on(t.entityId),
     statusIdx: index("secu_findings_status_idx").on(t.engagementId, t.status),
     severityIdx: index("secu_findings_severity_idx").on(t.engagementId, t.severity),
     fingerprintUnique: unique("secu_findings_engagement_fingerprint_unique").on(t.engagementId, t.fingerprint),
+}));
+
+/**
+ * Kommentar-Thread pro Finding — Operator-Notizen, "warum ist das relevant",
+ * "was wurde dazu geprüft". Wird im Engagement-Detail neben dem Finding angezeigt.
+ */
+export const findingComments = pgTable("secu_finding_comments", {
+    id: serial("id").primaryKey(),
+    findingId: integer("finding_id").notNull().references(() => findings.id, { onDelete: "cascade" }),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+}, (t) => ({
+    findingIdx: index("secu_finding_comments_finding_idx").on(t.findingId, t.createdAt),
 }));
 
 export const artifacts = pgTable("secu_artifacts", {
@@ -908,7 +950,11 @@ export type Finding = typeof findings.$inferSelect;
 export type NewFinding = typeof findings.$inferInsert;
 export type FindingStatus = (typeof findingStatusEnum.enumValues)[number];
 export type FindingCategory = (typeof findingCategoryEnum.enumValues)[number];
+export type FindingTriageReason = (typeof findingTriageReasonEnum.enumValues)[number];
 export type Severity = (typeof severityEnum.enumValues)[number];
+
+export type FindingComment = typeof findingComments.$inferSelect;
+export type NewFindingComment = typeof findingComments.$inferInsert;
 
 export type Artifact = typeof artifacts.$inferSelect;
 export type NewArtifact = typeof artifacts.$inferInsert;

@@ -1,15 +1,35 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:16.140Z
+// Generated at: 2026-05-08T21:09:35.389Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuRuleListParams = undefined;
 export type SecuRuleListQuery = {
+  limit?: number;
+  offset?: number;
+  sortBy?: "createdAt" | "updatedAt" | "name" | "fireCount" | "lastFiredAt";
+  order?: "asc" | "desc";
+  search?: string;
   trigger?: "entity.created" | "entity.updated" | "finding.created" | "playbook_run.completed" | "schedule";
   enabled?: "true" | "false";
   scope?: string;
 };
 export type SecuRuleListBody = undefined;
-export type SecuRuleListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuRuleListResponseData = Array<{
+  id: number;
+  name: string;
+  description: string | null;
+  scope: string;
+  trigger: "entity.created" | "entity.updated" | "finding.created" | "playbook_run.completed" | "schedule";
+  action: "start_playbook" | "tag_entity" | "notify_boss" | "create_finding";
+  condition: Record<string, any> | null;
+  actionParams: Record<string, any>;
+  enabled: boolean;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  fireCount: number;
+  lastFiredAt: string | null;
+}>;
 export type SecuRuleListResponse = import("../types").ApiEnvelope<SecuRuleListResponseData>;
 
 export type SecuRuleGetParams = {
@@ -17,7 +37,22 @@ export type SecuRuleGetParams = {
 };
 export type SecuRuleGetQuery = undefined;
 export type SecuRuleGetBody = undefined;
-export type SecuRuleGetResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuRuleGetResponseData = {
+  id: number;
+  name: string;
+  description: string | null;
+  scope: string;
+  trigger: "entity.created" | "entity.updated" | "finding.created" | "playbook_run.completed" | "schedule";
+  action: "start_playbook" | "tag_entity" | "notify_boss" | "create_finding";
+  condition: Record<string, any> | null;
+  actionParams: Record<string, any>;
+  enabled: boolean;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  fireCount: number;
+  lastFiredAt: string | null;
+};
 export type SecuRuleGetResponse = import("../types").ApiEnvelope<SecuRuleGetResponseData>;
 
 export type SecuRuleCreateParams = undefined;
@@ -32,7 +67,22 @@ export type SecuRuleCreateBody = {
   actionParams?: Record<string, any>;
   enabled?: boolean;
 };
-export type SecuRuleCreateResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuRuleCreateResponseData = {
+  id: number;
+  name: string;
+  description: string | null;
+  scope: string;
+  trigger: "entity.created" | "entity.updated" | "finding.created" | "playbook_run.completed" | "schedule";
+  action: "start_playbook" | "tag_entity" | "notify_boss" | "create_finding";
+  condition: Record<string, any> | null;
+  actionParams: Record<string, any>;
+  enabled: boolean;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  fireCount: number;
+  lastFiredAt: string | null;
+};
 export type SecuRuleCreateResponse = import("../types").ApiEnvelope<SecuRuleCreateResponseData>;
 
 export type SecuRuleUpdateParams = {
@@ -49,7 +99,22 @@ export type SecuRuleUpdateBody = {
   actionParams?: Record<string, any>;
   enabled?: boolean;
 };
-export type SecuRuleUpdateResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuRuleUpdateResponseData = {
+  id: number;
+  name: string;
+  description: string | null;
+  scope: string;
+  trigger: "entity.created" | "entity.updated" | "finding.created" | "playbook_run.completed" | "schedule";
+  action: "start_playbook" | "tag_entity" | "notify_boss" | "create_finding";
+  condition: Record<string, any> | null;
+  actionParams: Record<string, any>;
+  enabled: boolean;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  fireCount: number;
+  lastFiredAt: string | null;
+};
 export type SecuRuleUpdateResponse = import("../types").ApiEnvelope<SecuRuleUpdateResponseData>;
 
 export type SecuRuleDeleteParams = {
@@ -57,7 +122,9 @@ export type SecuRuleDeleteParams = {
 };
 export type SecuRuleDeleteQuery = undefined;
 export type SecuRuleDeleteBody = undefined;
-export type SecuRuleDeleteResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuRuleDeleteResponseData = {
+  ok: boolean;
+};
 export type SecuRuleDeleteResponse = import("../types").ApiEnvelope<SecuRuleDeleteResponseData>;
 
 export const apiRoutes_secu_rules = {

@@ -7,7 +7,6 @@
 //   GET    /engagements/:id/workers/runs/:runId           → Einzelner worker-run
 
 import { Router } from "express";
-import { z } from "zod";
 import { AccessControl } from "@/routes/middleware";
 import { createContractRouter } from "@/api-contract/contract-router";
 import { contract, validate } from "@/api-contract/contract.middleware";
@@ -20,6 +19,12 @@ import {
     workerRunStartBodySchema,
     workerRunStartParamSchema,
 } from "./worker.dto";
+import {
+    noDataSchema,
+    workerRegistryItemSchema,
+    workerRunExecutionResponseSchema,
+    workerRunSchema,
+} from "../security-response.dto";
 
 const c = createContractRouter("/", { tags: ["secu-workers"] });
 const router: Router = c.router;
@@ -34,7 +39,7 @@ c.get(
         summary: "List all registered workers (registry view) — optionally filtered by scope/targetKind",
         auth: { type: "frontend_bearer_http" },
         request: { query: workerListQuerySchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: workerRegistryItemSchema.array() }],
     }),
     workerController.listRegistry.bind(workerController),
 );
@@ -58,9 +63,9 @@ c.post(
             bodyContentType: "application/json",
         },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 400, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: workerRunExecutionResponseSchema },
+            { kind: "json", status: 400, data: noDataSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     workerController.startRun.bind(workerController),
@@ -74,7 +79,7 @@ c.get(
         summary: "List worker runs for an engagement (filterable by workerKey/status/entityId)",
         auth: { type: "frontend_bearer_http" },
         request: { params: workerRunListParamSchema, query: workerRunListQuerySchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: workerRunSchema.array() }],
     }),
     workerController.listRuns.bind(workerController),
 );
@@ -88,8 +93,8 @@ c.get(
         auth: { type: "frontend_bearer_http" },
         request: { params: workerRunGetParamSchema },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: workerRunSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     workerController.getRun.bind(workerController),

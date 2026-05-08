@@ -10,7 +10,6 @@
 // prüfen, dass `hintId` zum `engagementId` aus dem Pfad gehört (Cross-Engagement-Schutz).
 
 import { Router } from "express";
-import { z } from "zod";
 import { AccessControl } from "@/routes/middleware";
 import { createContractRouter } from "@/api-contract/contract-router";
 import { contract, validate } from "@/api-contract/contract.middleware";
@@ -21,6 +20,10 @@ import {
     hintCreateBodySchema,
     hintPatchBodySchema,
 } from "./hint.dto";
+import {
+    hintSchema,
+    noDataSchema,
+} from "../security-response.dto";
 
 const c = createContractRouter("/", { tags: ["secu-hints"] });
 const router: Router = c.router;
@@ -36,8 +39,8 @@ c.get(
         auth: { type: "frontend_bearer_http" },
         request: { params: engagementHintsParamsSchema },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: hintSchema.array() },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     hintController.list.bind(hintController),
@@ -60,8 +63,8 @@ c.post(
             bodyContentType: "application/json",
         },
         responses: [
-            { kind: "json", status: 201, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 201, data: hintSchema.array() },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     hintController.create.bind(hintController),
@@ -84,8 +87,8 @@ c.patch(
             bodyContentType: "application/json",
         },
         responses: [
-            { kind: "json", status: 200, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 200, data: hintSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     hintController.patch.bind(hintController),
@@ -100,8 +103,8 @@ c.delete(
         auth: { type: "frontend_bearer_http" },
         request: { params: engagementHintByIdParamsSchema },
         responses: [
-            { kind: "json", status: 204, data: z.any() },
-            { kind: "json", status: 404, data: z.any() },
+            { kind: "json", status: 204, data: noDataSchema },
+            { kind: "json", status: 404, data: noDataSchema },
         ],
     }),
     hintController.remove.bind(hintController),

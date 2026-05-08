@@ -81,6 +81,21 @@ export type RunStatusReport = {
     summary: PlaybookRunSummary | null;
 };
 
+export type LeanRunStatusReport = {
+    runId: number;
+    engagementId: number;
+    playbookKey: string;
+    status: PlaybookRunStatus;
+    startedAt: Date | null;
+    finishedAt: Date | null;
+    createdAt: Date;
+    workerRuns: Record<"total" | "pending" | "provisioning" | "running" | "completed" | "failed" | "cancelled" | "skipped", number>;
+    findingsCreated: number;
+    findingsDeduped: number;
+    discoveredEntities: number;
+    etag: string;
+};
+
 interface PlaybookRunSummary {
     playbookKey: string;
     rootEntityId: number;
@@ -212,12 +227,103 @@ export const playbookRunner = {
         };
     },
 
-    async listRunsForEngagement(engagementId: number): Promise<typeof playbookRuns.$inferSelect[]> {
-        return database
+    async getRunLeanStatus(runId: number): Promise<LeanRunStatusReport | null> {
+        const [run] = await database.select().from(playbookRuns).where(eq(playbookRuns.id, runId)).limit(1);
+        if (!run) return null;
+
+        const wRuns = await database
+            .select({
+                id: workerRuns.id,
+                status: workerRuns.status,
+                finishedAt: workerRuns.finishedAt,
+                updatedAt: workerRuns.createdAt,
+            })
+            .from(workerRuns)
+            .where(eq(workerRuns.playbookRunId, runId));
+
+        const counts: LeanRunStatusReport["workerRuns"] = {
+            total: wRuns.length,
+            pending: 0,
+            provisioning: 0,
+            running: 0,
+            completed: 0,
+            failed: 0,
+            cancelled: 0,
+            skipped: 0,
+        };
+        for (const workerRun of wRuns) counts[workerRun.status] += 1;
+
+        const summary = (run.resultSummary as unknown as PlaybookRunSummary | null) ?? null;
+        const newestWorkerMarker = wRuns
+            .map((workerRun) => workerRun.finishedAt?.getTime() ?? workerRun.updatedAt.getTime())
+            .sort((a, b) => b - a)[0] ?? 0;
+        const etagSource = [
+            run.id,
+            run.status,
+            run.startedAt?.getTime() ?? 0,
+            run.finishedAt?.getTime() ?? 0,
+            newestWorkerMarker,
+            counts.total,
+            counts.running,
+            counts.completed,
+            counts.failed,
+            counts.skipped,
+            summary?.totalFindingsCreated ?? 0,
+            summary?.totalFindingsDeduped ?? 0,
+            summary?.totalDiscoveredEntities ?? 0,
+        ].join(":");
+
+        return {
+            runId: run.id,
+            engagementId: run.engagementId,
+            playbookKey: run.playbookKey,
+            status: run.status,
+            startedAt: run.startedAt,
+            finishedAt: run.finishedAt,
+            createdAt: run.createdAt,
+            workerRuns: counts,
+            findingsCreated: summary?.totalFindingsCreated ?? 0,
+            findingsDeduped: summary?.totalFindingsDeduped ?? 0,
+            discoveredEntities: summary?.totalDiscoveredEntities ?? 0,
+            etag: `"${Buffer.from(etagSource).toString("base64url")}"`,
+        };
+    },
+
+    async listRunsForEngagement(
+        engagementId: number,
+        opts: {
+            limit?: number;
+            offset?: number;
+            status?: typeof playbookRuns.$inferSelect["status"];
+            playbookKey?: string;
+            sortBy?: "createdAt" | "startedAt" | "finishedAt" | "status";
+            order?: "asc" | "desc";
+        } = {},
+    ): Promise<typeof playbookRuns.$inferSelect[]> {
+        const conditions = [eq(playbookRuns.engagementId, engagementId)];
+        if (opts.status) conditions.push(eq(playbookRuns.status, opts.status));
+        if (opts.playbookKey) conditions.push(eq(playbookRuns.playbookKey, opts.playbookKey));
+
+        const sortColumn = (() => {
+            switch (opts.sortBy) {
+                case "startedAt": return playbookRuns.startedAt;
+                case "finishedAt": return playbookRuns.finishedAt;
+                case "status": return playbookRuns.status;
+                case "createdAt":
+                default: return playbookRuns.createdAt;
+            }
+        })();
+        const direction = opts.order === "asc" ? sortColumn : desc(sortColumn);
+
+        let query = database
             .select()
             .from(playbookRuns)
-            .where(eq(playbookRuns.engagementId, engagementId))
-            .orderBy(desc(playbookRuns.createdAt));
+            .where(and(...conditions))
+            .orderBy(direction)
+            .$dynamic();
+        if (opts.limit != null) query = query.limit(opts.limit);
+        if (opts.offset != null) query = query.offset(opts.offset);
+        return query;
     },
 };
 

@@ -8,6 +8,13 @@
       "when": 1778269906249,
       "tag": "0000_previous_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778274797106,
+      "tag": "0001_bitter_kang",
+      "breakpoints": true
     }
   ]
 }

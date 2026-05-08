@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ui } from "@/api-contract/ui-meta";
 
 export const hintSlot = z.enum([
     "owner_name",
@@ -10,13 +11,37 @@ export const hintSlot = z.enum([
     "industry",
     "free_text",
 ]);
+ui(hintSlot, {
+    label: "Slot",
+    widget: "select",
+    group: "Hint",
+    options: [
+        { value: "owner_name", label: "Inhaber-Name" },
+        { value: "owner_city", label: "Stadt" },
+        { value: "owner_company", label: "Firma" },
+        { value: "owner_known_email", label: "Bekannte E-Mail" },
+        { value: "owner_known_username", label: "Bekannter Username" },
+        { value: "owner_alt_domain", label: "Alternative Domain" },
+        { value: "industry", label: "Branche" },
+        { value: "free_text", label: "Freitext" },
+    ],
+});
 
 const hintItem = z
     .object({
         slot: hintSlot,
-        value: z.string().min(1).max(1024),
-        source: z.string().max(64).nullable().optional(),
-        notes: z.string().max(2048).nullable().optional(),
+        value: ui(z.string().min(1).max(1024), { label: "Wert", widget: "text", group: "Hint" }),
+        source: ui(z.string().max(64).nullable().optional(), {
+            label: "Quelle",
+            widget: "text",
+            group: "Hint",
+            placeholder: "z.B. impressum, linkedin, vermutung",
+        }),
+        notes: ui(z.string().max(2048).nullable().optional(), {
+            label: "Notiz",
+            widget: "textarea",
+            group: "Hint",
+        }),
     })
     .strict();
 
@@ -28,9 +53,9 @@ export const hintCreateBodySchema = z
 
 export const hintPatchBodySchema = z
     .object({
-        value: z.string().min(1).max(1024).optional(),
-        source: z.string().max(64).nullable().optional(),
-        notes: z.string().max(2048).nullable().optional(),
+        value: ui(z.string().min(1).max(1024).optional(), { label: "Wert", widget: "text", group: "Hint" }),
+        source: ui(z.string().max(64).nullable().optional(), { label: "Quelle", widget: "text", group: "Hint" }),
+        notes: ui(z.string().max(2048).nullable().optional(), { label: "Notiz", widget: "textarea", group: "Hint" }),
     })
     .strict()
     .refine((v) => Object.keys(v).length > 0, {

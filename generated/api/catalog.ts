@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:16.142Z
+// Generated at: 2026-05-08T21:27:24.263Z
 // Run `pnpm run api:generate` to regenerate
 
 export type RouteGroup = { key: string; module: string };
@@ -103,6 +103,10 @@ export const apiGroups = {
     "module": "./base/routes.roles"
   },
   {
+    "key": "secu_catalog",
+    "module": "./features/routes.secu_catalog"
+  },
+  {
     "key": "secu_engagements",
     "module": "./features/routes.secu_engagements"
   },
@@ -111,8 +115,16 @@ export const apiGroups = {
     "module": "./features/routes.secu_entities"
   },
   {
+    "key": "secu_findings",
+    "module": "./features/routes.secu_findings"
+  },
+  {
     "key": "secu_hints",
     "module": "./features/routes.secu_hints"
+  },
+  {
+    "key": "secu_intelligence",
+    "module": "./features/routes.secu_intelligence"
   },
   {
     "key": "secu_playbooks",

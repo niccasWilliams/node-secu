@@ -112,7 +112,44 @@ function unwrapEffects(schema: z.ZodTypeAny): z.ZodTypeAny {
   return cur;
 }
 
+/**
+ * Walks ZodOptional/Nullable/Default/Effects layers and collects
+ * `.description` (Zod's `.describe()`) + `_def.uiMeta` (from `ui(..)` helper).
+ * Returns whatever it finds first — outer layers win, then inner.
+ */
+function extractMeta(schema: any): { description?: string; uiMeta?: any } {
+  let cur: any = schema;
+  let description: string | undefined;
+  let uiMeta: any;
+  let guard = 0;
+  while (cur && guard++ < 16) {
+    if (description === undefined && typeof cur.description === "string") description = cur.description;
+    if (uiMeta === undefined && cur._def?.uiMeta) uiMeta = cur._def.uiMeta;
+    const t = typeName(cur);
+    if (t === "ZodOptional" || t === "ZodNullable" || t === "ZodDefault") {
+      cur = cur._def?.innerType;
+      continue;
+    }
+    if (t === "ZodEffects") {
+      cur = cur._def?.schema;
+      continue;
+    }
+    break;
+  }
+  return { description, uiMeta };
+}
+
+/** Public entry-point — runs the core walker, then attaches description/x-ui to the result. */
 function zodToJsonSchema(schema: z.ZodTypeAny): JsonSchema {
+  const out = _zodToJsonSchemaCore(schema);
+  if (!out || typeof out !== "object") return out;
+  const meta = extractMeta(schema);
+  if (meta.description && !out.description) out.description = meta.description;
+  if (meta.uiMeta && !out["x-ui"]) out["x-ui"] = meta.uiMeta;
+  return out;
+}
+
+function _zodToJsonSchemaCore(schema: z.ZodTypeAny): JsonSchema {
   const s: any = unwrapEffects(schema);
   const tn = typeName(s);
 
@@ -210,11 +247,21 @@ function zodToJsonSchema(schema: z.ZodTypeAny): JsonSchema {
         const propSchema = zodToJsonSchema(v);
         if (defaultValue !== undefined) propSchema.default = defaultValue;
 
+        // The property walk above already stripped Optional/Nullable/Default
+        // before reaching the leaf — extract description/uiMeta from the
+        // ORIGINAL value (`val`) so a `ui(schema.optional(), {...})` still works.
+        const outerMeta = extractMeta(val);
+
+        let propJson: any;
         if (isNullable) {
-          properties[key] = { anyOf: [propSchema, { type: "null" }] };
+          propJson = { anyOf: [propSchema, { type: "null" }] };
         } else {
-          properties[key] = propSchema;
+          propJson = propSchema;
         }
+        if (outerMeta.description && !propJson.description) propJson.description = outerMeta.description;
+        if (outerMeta.uiMeta && !propJson["x-ui"]) propJson["x-ui"] = outerMeta.uiMeta;
+
+        properties[key] = propJson;
         if (!isOptional) required.push(key);
       }
 

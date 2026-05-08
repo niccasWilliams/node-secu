@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:16.140Z
+// Generated at: 2026-05-08T21:09:35.385Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEngagementCreateParams = undefined;
@@ -11,17 +11,59 @@ export type SecuEngagementCreateBody = {
   scopeSummary?: string;
   primaryDomain?: string;
 };
-export type SecuEngagementCreateResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementCreateResponseData = {
+  engagement: {
+  id: number;
+  name: string;
+  slug: string;
+  kind: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
+  status: "planning" | "active" | "paused" | "completed" | "archived";
+  ownerUserId: number | null;
+  scopeSummary: string | null;
+  osintBudgetPerHour: number;
+  osintMaxHops: number;
+  createdAt: string;
+  updatedAt: string | null;
+  archivedAt: string | null;
+};
+  primaryEntity?: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+};
 export type SecuEngagementCreateResponse = import("../types").ApiEnvelope<SecuEngagementCreateResponseData>;
 
 export type SecuEngagementListParams = undefined;
 export type SecuEngagementListQuery = {
+  limit?: number;
+  offset?: number;
+  sortBy?: "createdAt" | "updatedAt" | "name" | "status";
+  order?: "asc" | "desc";
+  search?: string;
   includeArchived?: boolean;
   kind?: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
   ownerUserId?: number;
 };
 export type SecuEngagementListBody = undefined;
-export type SecuEngagementListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementListResponseData = Array<{
+  id: number;
+  name: string;
+  slug: string;
+  kind: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
+  status: "planning" | "active" | "paused" | "completed" | "archived";
+  ownerUserId: number | null;
+  scopeSummary: string | null;
+  osintBudgetPerHour: number;
+  osintMaxHops: number;
+  createdAt: string;
+  updatedAt: string | null;
+  archivedAt: string | null;
+}>;
 export type SecuEngagementListResponse = import("../types").ApiEnvelope<SecuEngagementListResponseData>;
 
 export type SecuEngagementGetParams = {
@@ -29,7 +71,44 @@ export type SecuEngagementGetParams = {
 };
 export type SecuEngagementGetQuery = undefined;
 export type SecuEngagementGetBody = undefined;
-export type SecuEngagementGetResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementGetResponseData = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
+  status: "planning" | "active" | "paused" | "completed" | "archived";
+  ownerUserId: number | null;
+  scopeSummary: string | null;
+  osintBudgetPerHour: number;
+  osintMaxHops: number;
+  createdAt: string;
+  updatedAt: string | null;
+  archivedAt: string | null;
+  graph: {
+  engagementId: number;
+  nodes: Array<{
+  data: {
+  id: string;
+  label: string;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  entityId: number;
+  role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context" | null;
+  tags: Array<string>;
+};
+}>;
+  edges: Array<{
+  data: {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+  confidence: number;
+};
+}>;
+};
+  entityCount: number;
+  findingCount: number;
+};
 export type SecuEngagementGetResponse = import("../types").ApiEnvelope<SecuEngagementGetResponseData>;
 
 export type SecuEngagementUpdateParams = {
@@ -41,7 +120,20 @@ export type SecuEngagementUpdateBody = {
   status?: "planning" | "active" | "paused" | "completed" | "archived";
   scopeSummary?: string | null;
 };
-export type SecuEngagementUpdateResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementUpdateResponseData = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
+  status: "planning" | "active" | "paused" | "completed" | "archived";
+  ownerUserId: number | null;
+  scopeSummary: string | null;
+  osintBudgetPerHour: number;
+  osintMaxHops: number;
+  createdAt: string;
+  updatedAt: string | null;
+  archivedAt: string | null;
+};
 export type SecuEngagementUpdateResponse = import("../types").ApiEnvelope<SecuEngagementUpdateResponseData>;
 
 export type SecuEngagementArchiveParams = {
@@ -49,7 +141,20 @@ export type SecuEngagementArchiveParams = {
 };
 export type SecuEngagementArchiveQuery = undefined;
 export type SecuEngagementArchiveBody = undefined;
-export type SecuEngagementArchiveResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementArchiveResponseData = {
+  id: number;
+  name: string;
+  slug: string;
+  kind: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
+  status: "planning" | "active" | "paused" | "completed" | "archived";
+  ownerUserId: number | null;
+  scopeSummary: string | null;
+  osintBudgetPerHour: number;
+  osintMaxHops: number;
+  createdAt: string;
+  updatedAt: string | null;
+  archivedAt: string | null;
+};
 export type SecuEngagementArchiveResponse = import("../types").ApiEnvelope<SecuEngagementArchiveResponseData>;
 
 export type SecuEngagementGraphParams = {
@@ -57,17 +162,53 @@ export type SecuEngagementGraphParams = {
 };
 export type SecuEngagementGraphQuery = undefined;
 export type SecuEngagementGraphBody = undefined;
-export type SecuEngagementGraphResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementGraphResponseData = {
+  engagementId: number;
+  nodes: Array<{
+  data: {
+  id: string;
+  label: string;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  entityId: number;
+  role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context" | null;
+  tags: Array<string>;
+};
+}>;
+  edges: Array<{
+  data: {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+  confidence: number;
+};
+}>;
+};
 export type SecuEngagementGraphResponse = import("../types").ApiEnvelope<SecuEngagementGraphResponseData>;
 
 export type SecuEngagementEntitiesListParams = {
   id: number;
 };
 export type SecuEngagementEntitiesListQuery = {
-  kind?: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document";
+  kind?: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
 };
 export type SecuEngagementEntitiesListBody = undefined;
-export type SecuEngagementEntitiesListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementEntitiesListResponseData = Array<{
+  link: {
+  id: number;
+  role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context";
+  notes: string | null;
+};
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+}>;
 export type SecuEngagementEntitiesListResponse = import("../types").ApiEnvelope<SecuEngagementEntitiesListResponseData>;
 
 export type SecuEngagementEntityLinkParams = {
@@ -77,7 +218,7 @@ export type SecuEngagementEntityLinkQuery = undefined;
 export type SecuEngagementEntityLinkBody = {
   entityId?: number;
   upsert?: {
-  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document";
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
   primaryValue: string;
   displayName?: string;
   discriminator?: string | null;
@@ -86,7 +227,11 @@ export type SecuEngagementEntityLinkBody = {
   role?: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context";
   notes?: string | null;
 };
-export type SecuEngagementEntityLinkResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementEntityLinkResponseData = {
+  id: number;
+  created: boolean;
+  entityId: number;
+};
 export type SecuEngagementEntityLinkResponse = import("../types").ApiEnvelope<SecuEngagementEntityLinkResponseData>;
 
 export type SecuEngagementEntityUnlinkParams = {
@@ -95,7 +240,7 @@ export type SecuEngagementEntityUnlinkParams = {
 };
 export type SecuEngagementEntityUnlinkQuery = undefined;
 export type SecuEngagementEntityUnlinkBody = undefined;
-export type SecuEngagementEntityUnlinkResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementEntityUnlinkResponseData = null;
 export type SecuEngagementEntityUnlinkResponse = import("../types").ApiEnvelope<SecuEngagementEntityUnlinkResponseData>;
 
 export type SecuEngagementNoteCreateParams = {
@@ -107,7 +252,9 @@ export type SecuEngagementNoteCreateBody = {
   title?: string;
   entityId?: number | null;
 };
-export type SecuEngagementNoteCreateResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementNoteCreateResponseData = {
+  id: number;
+};
 export type SecuEngagementNoteCreateResponse = import("../types").ApiEnvelope<SecuEngagementNoteCreateResponseData>;
 
 export type SecuEngagementAuthGrantParams = {
@@ -124,8 +271,62 @@ export type SecuEngagementAuthGrantBody = {
   expiresAt?: any | null;
   notes?: string | null;
 };
-export type SecuEngagementAuthGrantResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementAuthGrantResponseData = {
+  authorizationId: number;
+  engagementEntityId: number;
+};
 export type SecuEngagementAuthGrantResponse = import("../types").ApiEnvelope<SecuEngagementAuthGrantResponseData>;
+
+export type SecuEngagementAuthListParams = {
+  id: number;
+};
+export type SecuEngagementAuthListQuery = undefined;
+export type SecuEngagementAuthListBody = undefined;
+export type SecuEngagementAuthListResponseData = Array<{
+  id: number;
+  entityId: number;
+  kind: "own" | "verified_ownership" | "written_consent" | "internal_lab";
+  scope: "passive_only" | "active_safe" | "active_intrusive";
+  proofType: "dns_txt" | "http_file" | "written_contract" | "manual_owner_verification" | "none";
+  proofRef: string | null;
+  verificationToken: string | null;
+  grantedBy: number | null;
+  grantedAt: string;
+  verifiedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedBy: number | null;
+  notes: string | null;
+  createdAt: string;
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+} | null;
+  decision: {
+  activeSafeAllowed: boolean;
+  activeSafeReason: string;
+  activeIntrusiveAllowed: boolean;
+  activeIntrusiveReason: string;
+};
+}>;
+export type SecuEngagementAuthListResponse = import("../types").ApiEnvelope<SecuEngagementAuthListResponseData>;
+
+export type SecuEngagementAuthRevokeParams = {
+  id: number;
+  authorizationId: number;
+};
+export type SecuEngagementAuthRevokeQuery = undefined;
+export type SecuEngagementAuthRevokeBody = undefined;
+export type SecuEngagementAuthRevokeResponseData = {
+  authorizationId: number;
+  revokedAt: string;
+};
+export type SecuEngagementAuthRevokeResponse = import("../types").ApiEnvelope<SecuEngagementAuthRevokeResponseData>;
 
 export type SecuEngagementOsintEmailLinkParams = {
   id: number;
@@ -135,7 +336,19 @@ export type SecuEngagementOsintEmailLinkBody = {
   email: string;
   personId?: number | null;
 };
-export type SecuEngagementOsintEmailLinkResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementOsintEmailLinkResponseData = {
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+  engagementEntityId: number;
+  relationshipId: number | null;
+};
 export type SecuEngagementOsintEmailLinkResponse = import("../types").ApiEnvelope<SecuEngagementOsintEmailLinkResponseData>;
 
 export type SecuEngagementSignalChainsListParams = {
@@ -143,7 +356,15 @@ export type SecuEngagementSignalChainsListParams = {
 };
 export type SecuEngagementSignalChainsListQuery = undefined;
 export type SecuEngagementSignalChainsListBody = undefined;
-export type SecuEngagementSignalChainsListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementSignalChainsListResponseData = Array<{
+  id: number;
+  engagementId: number;
+  rootEntityId: number | null;
+  triggeredBy: string;
+  signalChain: Array<Record<string, any>>;
+  startedAt: string;
+  finishedAt: string | null;
+}>;
 export type SecuEngagementSignalChainsListResponse = import("../types").ApiEnvelope<SecuEngagementSignalChainsListResponseData>;
 
 export const apiRoutes_secu_engagements = {
@@ -337,6 +558,40 @@ export const apiRoutes_secu_engagements = {
       body: SecuEngagementAuthGrantBody;
       response: SecuEngagementAuthGrantResponse;
       responseData: SecuEngagementAuthGrantResponseData;
+    },
+  },
+  "secu_engagement_auth_list": {
+    method: "GET",
+    path: "/engagements/:id/authorizations",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "List entity authorizations for an engagement with effective scan decisions",
+      validated: {"params":true,"query":false,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuEngagementAuthListParams;
+      query: SecuEngagementAuthListQuery;
+      body: SecuEngagementAuthListBody;
+      response: SecuEngagementAuthListResponse;
+      responseData: SecuEngagementAuthListResponseData;
+    },
+  },
+  "secu_engagement_auth_revoke": {
+    method: "DELETE",
+    path: "/engagements/:id/authorizations/:authorizationId",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Revoke an authorization in an engagement",
+      validated: {"params":true,"query":false,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuEngagementAuthRevokeParams;
+      query: SecuEngagementAuthRevokeQuery;
+      body: SecuEngagementAuthRevokeBody;
+      response: SecuEngagementAuthRevokeResponse;
+      responseData: SecuEngagementAuthRevokeResponseData;
     },
   },
   "secu_engagement_osint_email_link": {

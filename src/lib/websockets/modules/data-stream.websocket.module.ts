@@ -112,6 +112,29 @@ export class DataStreamWebSocketModule extends BaseWebSocketModule<DataStreamCli
             }
         }
 
+        // Dynamischer Auth-Check (z.B. für Pattern-Streams wie secu:engagement:42).
+        if (streamMeta.authorize) {
+            try {
+                const allowed = await streamMeta.authorize({ userId: authenticatedUserId });
+                if (!allowed) {
+                    this.safeSend(ws, {
+                        type: WsMessageType.DATASTREAM_EVENT,
+                        stream,
+                        error: "FORBIDDEN",
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.error(`[DataStreamWebSocketModule] Authorize hook threw for stream ${stream}`, error);
+                this.safeSend(ws, {
+                    type: WsMessageType.DATASTREAM_EVENT,
+                    stream,
+                    error: "FORBIDDEN",
+                });
+                return;
+            }
+        }
+
         let client = this.clients.find((c) => c.ws === ws);
         if (!client) {
             client = { ws, streams: new Set(), userId: authenticatedUserId };

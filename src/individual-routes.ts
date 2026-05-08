@@ -2,9 +2,12 @@
 // This file is NOT synced with the template.
 
 import express from "express";
+import catalogRouter from "./routes/security/catalog/catalog.route";
 import engagementRouter from "./routes/security/engagements/engagement.route";
 import entityRouter from "./routes/security/entities/entity.route";
+import findingRouter from "./routes/security/findings/finding.route";
 import hintRouter from "./routes/security/hints/hint.route";
+import intelligenceRouter from "./routes/security/intelligence/intelligence.route";
 import playbookRouter from "./routes/security/playbooks/playbook.route";
 import ruleRouter from "./routes/security/rules/rule.route";
 import workerRouter from "./routes/security/workers/worker.route";
@@ -25,6 +28,9 @@ const registerIndividualRoutes = (app: express.Application) => {
     // Phase 2: Playbook-Engine (Pfade /playbooks und /engagements/:id/playbooks/...)
     app.use("/", playbookRouter);
 
+    // Command-Center Findings API (Pfade /engagements/:id/findings/...)
+    app.use("/", findingRouter);
+
     // Phase 2.5: Rule-Engine.
     app.use("/rules", ruleRouter);
 
@@ -33,6 +39,14 @@ const registerIndividualRoutes = (app: express.Application) => {
 
     // Sprint 1 (OSINT-Engine, features.md §2.1): Operator-Hints pro Engagement.
     app.use("/", hintRouter);
+
+    // Schema-driven UI: Enum-Werte, Playbook-/Worker-Display-Metadaten als
+    // Single-Source-of-Truth fürs Frontend (Pfad /catalog/...).
+    app.use("/", catalogRouter);
+
+    // Globale Intelligence: cross-engagement Pivots, Tech-Graph,
+    // k-Hop-Neighborhood (Lazy-Mindmap-Loading). Pfad /intelligence/...
+    app.use("/", intelligenceRouter);
 };
 
 export default registerIndividualRoutes;

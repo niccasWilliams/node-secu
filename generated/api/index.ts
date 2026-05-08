@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:16.141Z
+// Generated at: 2026-05-08T21:27:24.263Z
 // Run `pnpm run api:generate` to regenerate
 
 export * from "./types";
@@ -13,9 +13,12 @@ export * from "./base/routes.logs";
 export * from "./base/routes.oauth2";
 export * from "./base/routes.permissions";
 export * from "./base/routes.roles";
+export * from "./features/routes.secu_catalog";
 export * from "./features/routes.secu_engagements";
 export * from "./features/routes.secu_entities";
+export * from "./features/routes.secu_findings";
 export * from "./features/routes.secu_hints";
+export * from "./features/routes.secu_intelligence";
 export * from "./features/routes.secu_playbooks";
 export * from "./features/routes.secu_rules";
 export * from "./features/routes.secu_workers";
@@ -34,9 +37,12 @@ import { apiRoutes_logs } from "./base/routes.logs";
 import { apiRoutes_oauth2 } from "./base/routes.oauth2";
 import { apiRoutes_permissions } from "./base/routes.permissions";
 import { apiRoutes_roles } from "./base/routes.roles";
+import { apiRoutes_secu_catalog } from "./features/routes.secu_catalog";
 import { apiRoutes_secu_engagements } from "./features/routes.secu_engagements";
 import { apiRoutes_secu_entities } from "./features/routes.secu_entities";
+import { apiRoutes_secu_findings } from "./features/routes.secu_findings";
 import { apiRoutes_secu_hints } from "./features/routes.secu_hints";
+import { apiRoutes_secu_intelligence } from "./features/routes.secu_intelligence";
 import { apiRoutes_secu_playbooks } from "./features/routes.secu_playbooks";
 import { apiRoutes_secu_rules } from "./features/routes.secu_rules";
 import { apiRoutes_secu_workers } from "./features/routes.secu_workers";
@@ -55,9 +61,12 @@ export const apiRoutes = {
   ...apiRoutes_oauth2,
   ...apiRoutes_permissions,
   ...apiRoutes_roles,
+  ...apiRoutes_secu_catalog,
   ...apiRoutes_secu_engagements,
   ...apiRoutes_secu_entities,
+  ...apiRoutes_secu_findings,
   ...apiRoutes_secu_hints,
+  ...apiRoutes_secu_intelligence,
   ...apiRoutes_secu_playbooks,
   ...apiRoutes_secu_rules,
   ...apiRoutes_secu_workers,

@@ -4,6 +4,7 @@ import { database } from "@/db";
 import { secuSignalChainLog } from "@/db/individual/individual-schema";
 import { responseHandler } from "@/lib/communication";
 import { auditLogService } from "@/lib/security/audit/audit-log.service";
+import { authorizationService } from "@/lib/security/authorization/authorization.service";
 import { engagementService } from "@/lib/security/engagements/engagement.service";
 import { graphService } from "@/lib/security/engagements/graph.service";
 import { entityService } from "@/lib/security/entities/entity.service";
@@ -18,6 +19,7 @@ import type {
     OsintEmailEntityBody,
 } from "./engagement.dto";
 import type { ValidatedRequest } from "@/api-contract/contract.middleware";
+import { normalizePagination } from "@/api-contract/pagination.dto";
 import { getUserIdFromRequest } from "@/util/utils";
 
 function v<T>(req: Request, key: "params" | "query" | "body"): T {
@@ -74,10 +76,16 @@ class EngagementController {
     async list(req: Request, res: Response) {
         try {
             const q = v<EngagementListQuery>(req, "query");
+            const p = normalizePagination(q, { defaultSort: "createdAt", defaultOrder: "desc", defaultLimit: 50 });
             const rows = await engagementService.list({
                 includeArchived: q.includeArchived,
                 kind: q.kind,
                 ownerUserId: q.ownerUserId,
+                limit: p.limit,
+                offset: p.offset,
+                sortBy: p.sortBy as any,
+                order: p.order,
+                search: q.search,
             });
             return responseHandler(res, 200, undefined, rows);
         } catch (e: any) {
@@ -279,6 +287,60 @@ class EngagementController {
                 payload: { entityId: body.entityId, kind: body.kind, scope: body.scope },
             });
             return responseHandler(res, 201, undefined, { authorizationId: authId, engagementEntityId: link.id });
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    async listAuthorizations(req: Request, res: Response) {
+        try {
+            const { id } = v<{ id: number }>(req, "params");
+            const engagement = await engagementService.getById(id);
+            if (!engagement) return responseHandler(res, 404, "Engagement not found");
+
+            const rows = await engagementService.listAuthorizationsForEngagement(id);
+            const out = await Promise.all(rows.map(async (row) => {
+                const activeSafe = await authorizationService.canScan({ kind: "entity", id: row.entityId }, "active_safe");
+                const activeIntrusive = await authorizationService.canScan({ kind: "entity", id: row.entityId }, "active_intrusive");
+                return {
+                    ...row,
+                    decision: {
+                        activeSafeAllowed: activeSafe.allowed,
+                        activeSafeReason: activeSafe.reason,
+                        activeIntrusiveAllowed: activeIntrusive.allowed,
+                        activeIntrusiveReason: activeIntrusive.reason,
+                    },
+                };
+            }));
+            return responseHandler(res, 200, undefined, out);
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    async revokeAuthorization(req: Request, res: Response) {
+        try {
+            const { id, authorizationId } = v<{ id: number; authorizationId: number }>(req, "params");
+            const userId = (await getUserIdFromRequest(req)) ?? null;
+            const revoked = await engagementService.revokeAuthorizationInEngagement({
+                engagementId: id,
+                authorizationId,
+                revokedBy: userId,
+            });
+            if (!revoked) return responseHandler(res, 404, "Authorization not found in this engagement");
+
+            await auditLogService.log({
+                action: "auth.revoke",
+                actorUserId: userId,
+                engagementId: id,
+                targetType: "entity_authorization",
+                targetId: authorizationId,
+                payload: { entityId: revoked.entityId, scope: revoked.scope, kind: revoked.kind },
+            });
+            return responseHandler(res, 200, undefined, {
+                authorizationId,
+                revokedAt: revoked.revokedAt?.toISOString() ?? new Date().toISOString(),
+            });
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");
         }

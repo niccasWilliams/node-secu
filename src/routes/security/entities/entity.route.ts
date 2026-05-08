@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { z } from "zod";
 import { AccessControl } from "@/routes/middleware";
 import { createContractRouter } from "@/api-contract/contract-router";
 import { contract, validate } from "@/api-contract/contract.middleware";
@@ -9,9 +8,20 @@ import {
     entityEnrichFullBodySchema,
     entityListQuerySchema,
     entityParamsSchema,
+    entityPatchBodySchema,
     entityRelationshipBodySchema,
     entityTagBodySchema,
 } from "./entity.dto";
+import {
+    entityDetailSchema,
+    entityRelationshipSchema,
+    entityRelationshipWithEntitiesSchema,
+    entitySchema,
+    entitySearchItemSchema,
+    enrichFullResponseSchema,
+    noDataSchema,
+    tagResponseSchema,
+} from "../security-response.dto";
 
 const c = createContractRouter("/entities", { tags: ["secu-entities"] });
 const router: Router = c.router;
@@ -26,7 +36,7 @@ c.post(
         summary: "Create or upsert a global entity (deduplicated via canonical_key)",
         auth: { type: "frontend_bearer_http" },
         request: { body: entityCreateBodySchema, bodyContentType: "application/json" },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: entitySchema }],
     }),
     entityController.upsert.bind(entityController),
 );
@@ -39,7 +49,7 @@ c.get(
         summary: "Search global entities (kind + free text)",
         auth: { type: "frontend_bearer_http" },
         request: { query: entityListQuerySchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: entitySearchItemSchema.array() }],
     }),
     entityController.list.bind(entityController),
 );
@@ -52,7 +62,7 @@ c.get(
         summary: "Get entity detail (incl. tags, engagements, relationship-count)",
         auth: { type: "frontend_bearer_http" },
         request: { params: entityParamsSchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }, { kind: "json", status: 404, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: entityDetailSchema }, { kind: "json", status: 404, data: noDataSchema }],
     }),
     entityController.getDetail.bind(entityController),
 );
@@ -65,7 +75,7 @@ c.get(
         summary: "List relationships incident to an entity",
         auth: { type: "frontend_bearer_http" },
         request: { params: entityParamsSchema },
-        responses: [{ kind: "json", status: 200, data: z.any() }],
+        responses: [{ kind: "json", status: 200, data: entityRelationshipWithEntitiesSchema.array() }],
     }),
     entityController.listRelationships.bind(entityController),
 );
@@ -78,7 +88,7 @@ c.post(
         summary: "Upsert a relationship from this entity to another",
         auth: { type: "frontend_bearer_http" },
         request: { params: entityParamsSchema, body: entityRelationshipBodySchema, bodyContentType: "application/json" },
-        responses: [{ kind: "json", status: 201, data: z.any() }],
+        responses: [{ kind: "json", status: 201, data: entityRelationshipSchema }],
     }),
     entityController.createRelationship.bind(entityController),
 );
@@ -91,9 +101,25 @@ c.post(
         summary: "Add a tag to an entity (idempotent)",
         auth: { type: "frontend_bearer_http" },
         request: { params: entityParamsSchema, body: entityTagBodySchema, bodyContentType: "application/json" },
-        responses: [{ kind: "json", status: 201, data: z.any() }],
+        responses: [{ kind: "json", status: 201, data: tagResponseSchema }],
     }),
     entityController.addTag.bind(entityController),
+);
+
+c.patch(
+    "/:id",
+    validate({ params: entityParamsSchema, body: entityPatchBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_entity_patch",
+        summary: "Operator-edit an entity: merge data, optional displayName-update",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: entityParamsSchema, body: entityPatchBodySchema, bodyContentType: "application/json" },
+        responses: [
+            { kind: "json", status: 200, data: entitySchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    entityController.patch.bind(entityController),
 );
 
 // Phase 2.7 — manueller OSINT-Full-Enrichment-Trigger.
@@ -105,7 +131,7 @@ c.post(
         summary: "Phase 2.7 — Trigger osint_person_full: load linked identities, run their playbooks, persist signal_chain_log",
         auth: { type: "frontend_bearer_http" },
         request: { params: entityParamsSchema, body: entityEnrichFullBodySchema, bodyContentType: "application/json" },
-        responses: [{ kind: "json", status: 202, data: z.any() }],
+        responses: [{ kind: "json", status: 202, data: enrichFullResponseSchema }],
     }),
     entityController.enrichFull.bind(entityController),
 );

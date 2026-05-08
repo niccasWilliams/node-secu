@@ -3,6 +3,7 @@ import { responseHandler } from "@/lib/communication";
 import { auditLogService } from "@/lib/security/audit/audit-log.service";
 import { ruleService } from "@/lib/security/rules/rule.service";
 import type { ValidatedRequest } from "@/api-contract/contract.middleware";
+import { normalizePagination } from "@/api-contract/pagination.dto";
 import { getUserIdFromRequest } from "@/util/utils";
 import type { RuleCreateBody, RuleListQuery, RuleUpdateBody } from "./rule.dto";
 
@@ -14,10 +15,16 @@ class RuleController {
     async list(req: Request, res: Response) {
         try {
             const q = v<RuleListQuery>(req, "query");
+            const p = normalizePagination(q, { defaultSort: "createdAt", defaultOrder: "desc", defaultLimit: 100 });
             const rows = await ruleService.list({
                 trigger: q.trigger,
                 enabled: q.enabled === undefined ? undefined : q.enabled === "true",
                 scope: q.scope,
+                limit: p.limit,
+                offset: p.offset,
+                sortBy: p.sortBy as any,
+                order: p.order,
+                search: q.search,
             });
             return responseHandler(res, 200, undefined, rows);
         } catch (e: any) {

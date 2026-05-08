@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T19:53:16.141Z
+// Generated at: 2026-05-08T21:09:35.390Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuWorkerRegistryListParams = undefined;
@@ -8,7 +8,12 @@ export type SecuWorkerRegistryListQuery = {
   scope?: "passive_only" | "active_safe" | "active_intrusive";
 };
 export type SecuWorkerRegistryListBody = undefined;
-export type SecuWorkerRegistryListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuWorkerRegistryListResponseData = Array<{
+  jobKey: string;
+  requiredScope: "passive_only" | "active_safe" | "active_intrusive";
+  description: string;
+  defaultTimeoutMs: number;
+}>;
 export type SecuWorkerRegistryListResponse = import("../types").ApiEnvelope<SecuWorkerRegistryListResponseData>;
 
 export type SecuWorkerRunStartParams = {
@@ -21,20 +26,52 @@ export type SecuWorkerRunStartBody = {
   timeoutMs?: number;
   triggeredBy?: string;
 };
-export type SecuWorkerRunStartResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuWorkerRunStartResponseData = {
+  workerRunId: number;
+  status: "pending" | "provisioning" | "running" | "completed" | "failed" | "cancelled" | "skipped";
+  findingsCreated: number;
+  findingsDeduped: number;
+  techCount: number;
+  newDiscoveredEntities: number;
+  discoveredEntityIds: Array<number>;
+  durationMs: number;
+  exitCode?: number | null;
+  error?: string | null;
+};
 export type SecuWorkerRunStartResponse = import("../types").ApiEnvelope<SecuWorkerRunStartResponseData>;
 
 export type SecuWorkerRunListParams = {
   id: number;
 };
 export type SecuWorkerRunListQuery = {
-  workerKey?: string;
-  status?: "pending" | "running" | "completed" | "failed" | "skipped";
-  entityId?: number;
   limit?: number;
+  offset?: number;
+  sortBy?: "createdAt" | "startedAt" | "finishedAt" | "status" | "durationMs";
+  order?: "asc" | "desc";
+  search?: string;
+  workerKey?: string;
+  status?: "pending" | "provisioning" | "running" | "completed" | "failed" | "cancelled" | "skipped";
+  entityId?: number;
 };
 export type SecuWorkerRunListBody = undefined;
-export type SecuWorkerRunListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuWorkerRunListResponseData = Array<{
+  id: number;
+  playbookRunId: number | null;
+  engagementId: number;
+  entityId: number | null;
+  workerKey: string;
+  status: "pending" | "provisioning" | "running" | "completed" | "failed" | "cancelled" | "skipped";
+  provider: "local" | "hetzner" | "aws" | "digitalocean" | "docker_host" | "tor_proxy";
+  providerInstanceId: string | null;
+  providerRegion: string | null;
+  logsRef: string | null;
+  exitCode: number | null;
+  error: string | null;
+  durationMs: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}>;
 export type SecuWorkerRunListResponse = import("../types").ApiEnvelope<SecuWorkerRunListResponseData>;
 
 export type SecuWorkerRunGetParams = {
@@ -43,7 +80,24 @@ export type SecuWorkerRunGetParams = {
 };
 export type SecuWorkerRunGetQuery = undefined;
 export type SecuWorkerRunGetBody = undefined;
-export type SecuWorkerRunGetResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuWorkerRunGetResponseData = {
+  id: number;
+  playbookRunId: number | null;
+  engagementId: number;
+  entityId: number | null;
+  workerKey: string;
+  status: "pending" | "provisioning" | "running" | "completed" | "failed" | "cancelled" | "skipped";
+  provider: "local" | "hetzner" | "aws" | "digitalocean" | "docker_host" | "tor_proxy";
+  providerInstanceId: string | null;
+  providerRegion: string | null;
+  logsRef: string | null;
+  exitCode: number | null;
+  error: string | null;
+  durationMs: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+};
 export type SecuWorkerRunGetResponse = import("../types").ApiEnvelope<SecuWorkerRunGetResponseData>;
 
 export const apiRoutes_secu_workers = {
