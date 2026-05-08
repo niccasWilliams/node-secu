@@ -45,6 +45,13 @@ export interface EntityEventPayload {
      * das Feld undefined, dann gilt der Folge-Run als Hop 0.
      */
     sourcePlaybookRunId?: number;
+    /**
+     * Engagement-ID des laufenden Scans — wird vom worker-runner via sourceContext
+     * mitgeliefert, damit der Rule-Evaluator KEINEN nachträglichen DB-Lookup auf
+     * secu_engagement_entities machen muss. Ohne dieses Feld kommt der Lookup zu
+     * früh (entity.created feuert vor dem engagement_entities-INSERT).
+     */
+    engagementId?: number;
 }
 
 /**

@@ -34,7 +34,7 @@ export type EntityUpsertInput = {
      * Rule-Evaluator Hop-Tracking machen kann. Manuelle Aufrufe (REST
      * Controller, Test-Setup) lassen das undefined.
      */
-    sourceContext?: { playbookRunId?: number | null };
+    sourceContext?: { playbookRunId?: number | null; engagementId?: number | null };
 };
 
 export type EntitySearchFilters = {
@@ -74,6 +74,7 @@ export const entityService = {
             .limit(1);
 
         const sourcePlaybookRunId = input.sourceContext?.playbookRunId ?? undefined;
+        const sourceEngagementId = input.sourceContext?.engagementId ?? undefined;
 
         if (existing.length > 0) {
             const current = existing[0];
@@ -96,6 +97,7 @@ export const entityService = {
                 data: (updated.data ?? {}) as Record<string, unknown>,
                 tech: extractTechSet(updated.data as Record<string, unknown> | null),
                 sourcePlaybookRunId: sourcePlaybookRunId ?? undefined,
+                engagementId: sourceEngagementId,
             });
             void triggerCrossEngagementHit(updated);
             return updated;
@@ -117,6 +119,7 @@ export const entityService = {
             data: (created.data ?? {}) as Record<string, unknown>,
             tech: extractTechSet(created.data as Record<string, unknown> | null),
             sourcePlaybookRunId: sourcePlaybookRunId ?? undefined,
+            engagementId: sourceEngagementId,
         });
         void triggerCrossEngagementHit(created);
         return created;
@@ -139,7 +142,7 @@ export const entityService = {
     async patchData(
         id: number,
         patch: Record<string, unknown>,
-        sourceContext?: { playbookRunId?: number | null },
+        sourceContext?: { playbookRunId?: number | null; engagementId?: number | null },
     ): Promise<Entity | null> {
         if (!patch || Object.keys(patch).length === 0) return this.getById(id);
         const current = await this.getById(id);
@@ -159,6 +162,7 @@ export const entityService = {
             data: (updated.data ?? {}) as Record<string, unknown>,
             tech: extractTechSet(updated.data as Record<string, unknown> | null),
             sourcePlaybookRunId: sourceContext?.playbookRunId ?? undefined,
+            engagementId: sourceContext?.engagementId ?? undefined,
         });
         void triggerCrossEngagementHit(updated);
         return updated;

@@ -198,7 +198,7 @@ export async function executeWorker(input: ExecuteWorkerInput): Promise<ExecuteW
             await entityService.patchData(
                 target.id as number,
                 result.entityDataPatch,
-                { playbookRunId },
+                { playbookRunId, engagementId: engagement.id },
             );
         } catch (err) {
             console.error("[worker-runner] entityDataPatch failed", {
@@ -298,7 +298,7 @@ async function persistDiscoveredEntities(input: {
                 discriminator: draft.discriminator ?? null,
             },
             data: draft.data,
-            sourceContext: { playbookRunId: input.playbookRunId ?? null },
+            sourceContext: { playbookRunId: input.playbookRunId ?? null, engagementId: input.engagementId },
         });
         persisted.push(entity);
 
@@ -325,7 +325,7 @@ async function persistDiscoveredEntities(input: {
                 await entityService.patchData(
                     entity.id,
                     { provenance: aggregated.provenance },
-                    { playbookRunId: input.playbookRunId ?? null },
+                    { playbookRunId: input.playbookRunId ?? null, engagementId: input.engagementId },
                 );
                 if (aggregated.newConflictsAdded > 0) {
                     console.warn("[worker-runner] confidence: new conflicts on entity", {

@@ -204,15 +204,15 @@ async function buildConditionData(event: SecuEvent): Promise<ConditionData> {
             tech: e.tech,
             data: e.data,
         };
-        // Bug-Fix (Run #1, 2026-05-08): entity.updated-Events trugen keinen
-        // engagement-Kontext, dadurch failed `start_playbook`-Actions mit
-        // "no engagement in scope" — exakt der Fall der Rule 8 (rest_api →
-        // api_security_active) im Run #1 gegen geilemukke.de blockiert hat.
-        // Lösung: Entity → linked Engagement via `secu_engagement_entities`.
-        // Bei N:M nehmen wir das jüngste Linkage (typisch: das gerade aktive
-        // Engagement des Scans). Rules können via `scope=engagement:N` weiter
-        // einschränken.
-        data.engagement = await loadEngagementForEntity(e.entityId);
+        // entity.created/updated: Engagement-Kontext aus Event-Payload lesen (primär)
+        // oder via DB-Lookup auf secu_engagement_entities (Fallback für manuelle Upserts).
+        // Der Event-Payload trägt engagementId seit dem Fix vom 2026-05-08 — das vermeidet
+        // Race Conditions, weil entity.created vor dem engagement_entities-INSERT feuert.
+        if (e.engagementId) {
+            data.engagement = await loadEngagement(e.engagementId);
+        } else {
+            data.engagement = await loadEngagementForEntity(e.entityId);
+        }
     }
 
     if (event.type === "finding.created") {
