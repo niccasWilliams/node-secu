@@ -1,0 +1,364 @@
+{
+  "$schema": "internal — siehe username-multiplatform.worker.ts für Feld-Doku",
+  "version": 1,
+  "source": "kuratiert auf Basis von WhatsMyName (verified-Tier) + Sherlock/Maigret (candidate-Tier). Quality-Tier-Mischung mit strict successCriteria zur Salat-Vermeidung.",
+  "lastReviewed": "2026-05-08",
+  "tiers": {
+    "verified": "Strikt validiert — successCriteria erfordert sowohl statusCode UND content-Match. Confidence-Default 85.",
+    "candidate": "Lose validiert — opt-in pro Engagement. Confidence-Default 60. Höherer False-Positive-Anteil."
+  },
+  "platforms": [
+    {
+      "name": "github",
+      "platform": "github.com",
+      "method": "GET",
+      "url": "https://api.github.com/users/{username}",
+      "headers": { "Accept": "application/vnd.github+json" },
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"login\"\\s*:\\s*\"" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "gitlab",
+      "platform": "gitlab.com",
+      "method": "GET",
+      "url": "https://gitlab.com/{username}.json",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"username\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile_json"
+    },
+    {
+      "name": "bitbucket",
+      "platform": "bitbucket.org",
+      "method": "GET",
+      "url": "https://api.bitbucket.org/2.0/users/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"username\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "reddit",
+      "platform": "reddit.com",
+      "method": "GET",
+      "url": "https://www.reddit.com/user/{username}/about.json",
+      "headers": { "Accept": "application/json" },
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"name\"\\s*:\\s*\"" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "medium",
+      "platform": "medium.com",
+      "method": "GET",
+      "url": "https://medium.com/@{username}/about",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "metadata" },
+      "errorCriteria": { "statusCodeIn": [404, 410] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "dribbble",
+      "platform": "dribbble.com",
+      "method": "GET",
+      "url": "https://dribbble.com/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "<title>[^<]*\\(@" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "behance",
+      "platform": "behance.net",
+      "method": "GET",
+      "url": "https://www.behance.net/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "ProfileHeader" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "soundcloud",
+      "platform": "soundcloud.com",
+      "method": "GET",
+      "url": "https://soundcloud.com/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "soundcloud://users/" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "twitch",
+      "platform": "twitch.tv",
+      "method": "GET",
+      "url": "https://www.twitch.tv/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "twitch.tv/{username}" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "vimeo",
+      "platform": "vimeo.com",
+      "method": "GET",
+      "url": "https://vimeo.com/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"display_name\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "flickr",
+      "platform": "flickr.com",
+      "method": "GET",
+      "url": "https://www.flickr.com/people/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "person-card" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "lastfm",
+      "platform": "last.fm",
+      "method": "GET",
+      "url": "https://www.last.fm/user/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "user-library" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "mixcloud",
+      "platform": "mixcloud.com",
+      "method": "GET",
+      "url": "https://api.mixcloud.com/{username}/",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"username\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "quora",
+      "platform": "quora.com",
+      "method": "GET",
+      "url": "https://www.quora.com/profile/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "ProfileHeader" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "devto",
+      "platform": "dev.to",
+      "method": "GET",
+      "url": "https://dev.to/api/users/by_username?url={username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"username\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "hackernews",
+      "platform": "news.ycombinator.com",
+      "method": "GET",
+      "url": "https://hacker-news.firebaseio.com/v0/user/{username}.json",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"id\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [200], "responseContains": "null" },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "producthunt",
+      "platform": "producthunt.com",
+      "method": "GET",
+      "url": "https://www.producthunt.com/@{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "user-card" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "keybase",
+      "platform": "keybase.io",
+      "method": "GET",
+      "url": "https://keybase.io/_/api/1.0/user/lookup.json?usernames={username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"status\"\\s*:\\s*\\{\\s*\"code\"\\s*:\\s*0" },
+      "errorCriteria": { "statusCodeIn": [200], "responseRegex": "\"code\"\\s*:\\s*[1-9]" },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "aboutme",
+      "platform": "about.me",
+      "method": "GET",
+      "url": "https://about.me/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "page-bio" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "patreon",
+      "platform": "patreon.com",
+      "method": "GET",
+      "url": "https://www.patreon.com/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "patreon" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "tumblr",
+      "platform": "tumblr.com",
+      "method": "GET",
+      "url": "https://{username}.tumblr.com",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "tumblr" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "pinterest",
+      "platform": "pinterest.com",
+      "method": "GET",
+      "url": "https://www.pinterest.com/{username}/",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "ProfileHeader" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "wordpress",
+      "platform": "wordpress.com",
+      "method": "GET",
+      "url": "https://public-api.wordpress.com/rest/v1/sites/{username}.wordpress.com",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"ID\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "archive_org",
+      "platform": "archive.org",
+      "method": "GET",
+      "url": "https://archive.org/details/@{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "user-image" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "duolingo",
+      "platform": "duolingo.com",
+      "method": "GET",
+      "url": "https://www.duolingo.com/2017-06-30/users?username={username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"users\"\\s*:\\s*\\[\\s*\\{" },
+      "errorCriteria": { "statusCodeIn": [200], "responseContains": "\"users\":[]" },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "stackoverflow",
+      "platform": "stackoverflow.com",
+      "method": "GET",
+      "url": "https://api.stackexchange.com/2.3/users?inname={username}&site=stackoverflow",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"items\"\\s*:\\s*\\[\\s*\\{" },
+      "errorCriteria": { "statusCodeIn": [200], "responseContains": "\"items\":[]" },
+      "qualityTier": "verified",
+      "complianceTag": "public_api"
+    },
+    {
+      "name": "fosstodon",
+      "platform": "fosstodon.org",
+      "method": "GET",
+      "url": "https://fosstodon.org/@{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "h-card" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "mastodon_social",
+      "platform": "mastodon.social",
+      "method": "GET",
+      "url": "https://mastodon.social/@{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "h-card" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "trello",
+      "platform": "trello.com",
+      "method": "GET",
+      "url": "https://trello.com/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "MemberHeader" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "blogger",
+      "platform": "blogger.com",
+      "method": "GET",
+      "url": "https://{username}.blogspot.com",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "blogger.com" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "verified",
+      "complianceTag": "public_profile"
+    },
+    {
+      "name": "tiktok",
+      "platform": "tiktok.com",
+      "method": "GET",
+      "url": "https://www.tiktok.com/@{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"uniqueId\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "candidate",
+      "complianceTag": "public_profile_blocked_often"
+    },
+    {
+      "name": "snapchat",
+      "platform": "snapchat.com",
+      "method": "GET",
+      "url": "https://www.snapchat.com/add/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "PublicProfile" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "candidate",
+      "complianceTag": "public_profile_partial"
+    },
+    {
+      "name": "linkedin",
+      "platform": "linkedin.com",
+      "method": "GET",
+      "url": "https://www.linkedin.com/in/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "publicIdentifier" },
+      "errorCriteria": { "statusCodeIn": [404, 999] },
+      "qualityTier": "candidate",
+      "complianceTag": "rate_limit_aggressive_warn"
+    },
+    {
+      "name": "instagram",
+      "platform": "instagram.com",
+      "method": "GET",
+      "url": "https://www.instagram.com/{username}/?__a=1",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"username\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "candidate",
+      "complianceTag": "rate_limit_aggressive_warn"
+    },
+    {
+      "name": "facebook",
+      "platform": "facebook.com",
+      "method": "GET",
+      "url": "https://www.facebook.com/{username}",
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "PageHeader" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "qualityTier": "candidate",
+      "complianceTag": "rate_limit_aggressive_warn"
+    }
+  ]
+}

@@ -22,11 +22,43 @@ export type WorkerJobKey =
     | "subdomain_passive"
     | "wp_passive_check"
     | "leak_check"
+    // Phase 5 — Deep Tech-Detection (passive_only)
+    | "tech_fingerprint"
+    // Phase 2.7 — OSINT Identity-Enrichment (alle passive_only)
+    | "email_dns_signals"
+    | "email_gravatar"
+    | "email_github_commits"
+    | "github_secret_scan"
+    | "email_holehe_passive"
+    | "email_breach_check"
+    | "email_pattern_inference"
+    | "email_alias_correlate"
+    | "domain_ct_email_mining"
+    | "domain_github_personnel"
+    | "username_multiplatform"
+    | "phone_normalize"
+    | "social_account_validate"
+    // Service-Layer (passive_only — leitet Service-Type aus bereits erfassten Signalen ab)
+    | "service_classify"
+    // Sprint 2 (OSINT-Engine) — Domain → Owner Worker. Alle passive_only.
+    | "domain_whois_passive"
+    | "domain_impressum_extract"
+    | "domain_microsoft_tenant"
+    | "domain_html_pivots_extract"
+    // Sprint 3 (OSINT-Engine) — GitHub-Brand-Discovery. Alle passive_only.
+    | "domain_github_brand"
+    | "github_repos_public"
+    | "github_events_public"
     // Active (require active_safe authorization)
     | "nuclei_safe"
     | "nmap_top1000"
     | "sslyze_deep"
     | "cms_scan"
+    | "http_paths_probe"
+    | "openapi_discovery"
+    | "api_auth_probe"
+    | "api_cors_check"
+    | "api_rate_limit_safe"
     // Active intrusive (require active_intrusive authorization)
     | "nuclei_full"
     | "nmap_full"
@@ -54,7 +86,9 @@ export interface FindingDraft {
     category:
         | "dns" | "email_security" | "tls" | "http_headers" | "exposure"
         | "cms" | "auth" | "injection" | "cve" | "config" | "deps"
-        | "cert" | "phishing" | "leak";
+        | "cert" | "phishing" | "leak"
+        // Sprint 1.6 — DDG/TMG §5 Impressum-Compliance (genutzt von domain_impressum_extract)
+        | "compliance_imprint";
     title: string;
     description: string;
     evidence?: Record<string, unknown>;
@@ -96,6 +130,36 @@ export interface DiscoveredEntityDraft {
     };
     /** Quelle der Entdeckung — wird in entity_relationships.source übernommen. */
     source?: string;
+    /**
+     * Sprint 1.2 — optionale Provenance-Belege (features.md §2.2 + §2.7).
+     *
+     * Wenn der Worker eine OWNER-Hypothese, einen Cross-Domain-Pivot oder
+     * eine sonstige nicht-faktische Discovery liefert, fügt er hier die
+     * Evidence-Items an. Der playbook-runner reicht sie an
+     * `confidenceService.aggregate()` und mergt das resultierende
+     * `provenance`-Subobjekt in `entity.data.provenance`.
+     *
+     * Faktische Discoveries (z.B. DNS-A-Resolution, MX-Records) brauchen
+     * KEIN Evidence-Feld — solche Entities bleiben ohne `provenance` und
+     * werden als verifizierte Fakten gerendert.
+     */
+    evidence?: Array<{
+        source: string;
+        snippet?: string;
+        /** 0.0..1.0 — Empfehlung pro Klasse: organic 0.5, hint_seeded 0.4. */
+        confidenceContribution: number;
+        evidenceClass: "organic" | "hint_seeded";
+        hintRefs?: number[];
+    }>;
+    /**
+     * Override für die `speculative`-Heuristik. Default = abgeleitet von
+     * Confidence (< 0.6 → speculative=true). Nur setzen wenn der Worker
+     * EXPLIZIT signalisieren will dass die Entity Hypothese ist (z.B.
+     * `email_pattern_inference` generiert immer speculative=true Emails)
+     * oder explizit als verifiziert markiert (z.B. WHOIS mit nicht-anonym
+     * gemeldetem Owner = speculative=false).
+     */
+    speculativeOverride?: boolean;
 }
 
 export interface WorkerResult {
@@ -105,6 +169,19 @@ export interface WorkerResult {
     techFingerprints?: TechDraft[];
     /** Vom Worker neu entdeckte Entities — werden vom Runner upserted und verlinkt. */
     discoveredEntities?: DiscoveredEntityDraft[];
+    /**
+     * Phase 2.7 — additive Patch der Source-Entity-Daten (entities.data jsonb).
+     * Wird vom Runner shallow-merged in das bestehende data-Objekt der Source-Entity.
+     * Nutzbar für Worker, die das *Wissen über das Target* anreichern, statt neue
+     * Entities zu entdecken (z.B. phone_normalize → e164, social_validate → lastSeenAt).
+     */
+    entityDataPatch?: Record<string, unknown>;
+    /**
+     * Phase 4.5 (Trust-Layer) — Exit-Code des unterliegenden Tools, falls CLI-basiert.
+     * Wird vom Runner nach `secu_worker_runs.exit_code` persistiert. Nicht-CLI-Worker
+     * (HTTP-Probes, OSINT-API-Calls) lassen das Feld undefined.
+     */
+    exitCode?: number | null;
     error?: string;
     durationMs: number;
 }
@@ -113,6 +190,15 @@ export interface WorkerContext {
     target: WorkerTarget;
     workerRunId: number | string;
     timeoutMs: number;
+    /**
+     * Sprint 2 #7 — Engagement-Kontext, den der Worker für Provider-Klassifikation
+     * (`infrastructureProviderService.classifyAndPersistIfInfra`), Hint-Konsum
+     * (`hintService.getBundle()`) und Pivot-Persistierung (DNS/HTML-Pivots,
+     * Sprint 5) braucht. Ist optional, weil ad-hoc-Worker-Aufrufe ohne Engagement-
+     * Kontext für reine "isApplicable + run"-Smoke-Tests legitim sind. Worker
+     * fallen gracefully zurück (kein classifyAndPersistIfInfra wenn fehlend).
+     */
+    engagementId?: number;
     /** Out-of-band Signal vom Orchestrator (z.B. User hat Run abgebrochen). */
     abortSignal?: AbortSignal;
 }

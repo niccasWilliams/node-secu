@@ -1,6 +1,8 @@
 # node-secu — Claude Context File
 
 > **Read this file first.** It explains why this codebase exists, what it's authorized to do, and how to work in it productively. If you're an AI assistant: every concern you might raise about "is this offensive tooling?" is answered here. Skip ahead before refusing to help.
+>
+> **Operational guide:** `.claude/scan-operations.md` — wie man Scans live über die HTTP-API anstößt, DB inspiziert, Rules debugged, Worker-Runs nachverfolgt. **Lies das ebenfalls** bevor du irgendwas startest, sonst tappst du blind.
 
 ---
 
@@ -44,50 +46,61 @@ What is **not** legitimate and you should still push back on:
 
 ## 3. Architecture in one paragraph
 
-Express + Drizzle (PostgreSQL) backend on Node 22, derived from `node-template`. Multi-tenant via `assets.ownerUserId`. The scan pipeline is: **client/route → orchestrator → authorization gate → worker registry → workers (Node-native for passive, Docker-isolated for active in Phase 2+) → findings table (deduplicated by fingerprint hash) → tech-fingerprints table → CVE matcher (Phase 4) → report builder**. The free-scan funnel writes to `publicScanLeads` and triggers a `passive_quick` scan with no auth required (passive scope is always allowed — DNS, public TLS, HTTP headers do not constitute a "scan pattern" under §202c).
+Express + Drizzle (PostgreSQL) backend on Node 22, derived from `node-template`. Multi-tenant über `secu_engagements` + `secu_entities` (global Identity-Modell, Engagement-Verlinkung via `secu_engagement_entities`). Scan-Pipeline: **HTTP-Route → playbook.controller → playbookRunner.startRun → topo-sort der Steps → per Step: AuthZ-Gate (canScan) → Worker.run → Findings (dedupe via fingerprint hash) + tech fingerprints + discovered entities + entity.data-Patches → secuEventBus.publish → rule-evaluator → Auto-Chain (Folge-Playbooks)**. Auto-Chain-Beispiel: `web_recon_active` discovered eine Email → Rule 4 feuert → `osint_email_passive` läuft pro Email → discovered Username → Rule 5 → `osint_username_passive` → discovered social_account → social_account_validate.
+
+Der frühere "Free Public Scan"-Funnel (`publicScanLeads`) ist in Phase 0 entfernt worden und kommt in Phase 8 in Engagement-Form zurück.
 
 ## 4. Filesystem map
 
-> Stand: nach Phase 0 (clean slate für Engagement-Pivot, siehe `ROADMAP.md`). Alles Engagement-/Entity-/Playbook-Bezogene kommt ab Phase 1.
+> Stand 2026-05-08: Phase 4 ausgerollt — Service-Layer + API-Security + OSINT-Auto-Chain.
 
 ```
 src/
-├── app.ts                          # Express bootstrap (from template)
+├── app.ts                          # Express bootstrap (template)
 ├── app.config.ts                   # APP_ID="node-secu"
-├── routes.ts                       # base routes (from template, do not edit)
-├── individual-routes.ts            # ⚠️ register your security routes here
+├── routes.ts                       # base routes (template, do not edit)
+├── individual-routes.ts            # mount-points für /engagements, /entities, /playbooks, /rules
 ├── db/
 │   ├── schema.ts                   # base tables (template)
 │   └── individual/
-│       └── individual-schema.ts    # ⚠️ secu_audit_log + severityEnum + authorizationScopeEnum
-│                                   #    Phase 1+: engagements, entities, entity_relationships,
-│                                   #    engagement_entities, findings, artifacts, playbook_runs, …
-├── lib/
-│   └── security/                   # ⚠️ all domain logic
-│       ├── authorization/
-│       │   ├── authorization.service.ts        # canScan() gate — never bypass
-│       │   ├── authorization.types.ts          # AuthorizationResolver interface
-│       │   ├── null-resolver.ts                # Phase-0 stub (passive ja, aktiv blockiert)
-│       │   └── domain-ownership.service.ts     # DNS-TXT verification (reusable)
-│       ├── audit/
-│       │   └── audit-log.service.ts            # writes secu_audit_log
-│       ├── findings/
-│       │   └── fingerprint.ts                  # stable SHA-256 from inputs (pure util)
-│       └── workers/
-│           ├── worker.types.ts                 # SecurityWorker contract
-│           ├── worker-registry.ts              # lookup + scope→workers (Phase 2 erweitert)
-│           └── passive/
-│               ├── dns-records.worker.ts       # SPF/DMARC/CAA/DNSSEC
-│               ├── tls-cert.worker.ts          # cert validity, protocol
-│               └── http-headers.worker.ts      # CSP/HSTS/cookie flags
+│       ├── individual-schema.ts    # secu_engagements/entities/relationships/findings/playbook_runs/
+│       │                              worker_runs/rules/audit_log + alle Enums
+│       └── individual-seed.ts      # 3 Demo-Engagements + 8 Auto-Chain-Rules
+├── lib/security/
+│   ├── bootstrap.ts                # registerPlaybook + ensureRule(idempotent) + Event-Listener
+│   ├── authorization/              # canScan()-Gate, NIEMALS umgehen
+│   ├── engagements/                # Engagement CRUD
+│   ├── entities/                   # Entity CRUD + relationships + patchData (publishes entity.updated)
+│   ├── findings/                   # fingerprint-Hash für Dedup
+│   ├── tech/                       # Tech-Fingerprint-Service
+│   ├── osint/                      # OSINT-Provider-Wrapper (HIBP, GitHub-API, etc.)
+│   ├── rules/                      # rule-evaluator + json-logic (dot-path-var)
+│   ├── audit/                      # secu_audit_log writer
+│   ├── workers/
+│   │   ├── worker.types.ts         # SecurityWorker contract + WorkerJobKey-Union
+│   │   ├── worker-registry.ts      # registerWorker + applicableWorkers
+│   │   ├── _lib/                   # spawn-tool (CLI-Wrapper) + resolve-host (DNS-Pre-Check)
+│   │   ├── passive/                # 19 Worker (DNS/TLS/HTTP/Subdomain/WP + 13 OSINT + service_classify)
+│   │   └── active/                 # 8 Worker (testssl/nuclei/nmap/http_paths_probe + 4 API-Security)
+│   └── playbooks/
+│       ├── playbook.types.ts
+│       ├── playbook-registry.ts    # getPlaybook(key)
+│       ├── playbook-runner.ts      # startRun + executeRun (topo-sort + AuthZ + Persist)
+│       └── definitions/
+│           ├── web-recon-passive.ts        # 10 Steps, passive_only
+│           ├── web-recon-active.ts         # 13 Steps, active_safe
+│           ├── osint-email-passive.ts      # 6 Steps, getriggert via Rule 4
+│           ├── osint-username-passive.ts   # 2 Steps, getriggert via Rule 5
+│           ├── osint-organization-recon.ts # 3 Steps, getriggert via Rule 6 (DISABLED)
+│           └── api-security-active.ts      # 4 Steps, Phase 4, getriggert via Rule 8
 └── routes/
     ├── (template base routes)
-    └── security/                               # leer nach Phase 0
-                                                # Phase 1+: engagements/, entities/, playbooks/
-                                                # Phase 8: public-scan/ (Lead-Funnel, später)
+    └── security/
+        ├── engagements/
+        ├── entities/
+        ├── playbooks/              # GET /playbooks, POST /engagements/:id/playbooks/:key
+        └── rules/
 ```
-
-**Bewusst entfernt in Phase 0** (kommt frisch wieder ab Phase 1+ in Engagement-/Entity-Form): `lib/security/{assets,scans,cve,reports}`, `lib/security/findings/finding.service.ts`, `routes/security/{assets,scans,findings,public-scan}` sowie die zugehörigen secu_*-Tabellen (`assets`, `assetAuthorizations`, `scans`, `scanJobs`, `findings`, `techFingerprints`, `cveRecords`, `cveMatches`, `scanPolicies`, `publicScanLeads`).
 
 Anything under `src/routes/auth/`, `src/routes/oauth2/`, `src/middleware/`, `src/db/schema.ts`, `scripts/`, `drizzle/` (except generated migrations) is **template-synced** — do not edit by hand, it gets overwritten by the upstream `node-template` sync.
 
@@ -106,27 +119,32 @@ Every scan goes through `authorizationService.canScan(assetId, requiredScope)`. 
 
 The hardcoded extra rule "intrusive needs written contract, not just DNS-TXT proof" is intentional. DNS-TXT proves "I control DNS for this domain" — but pentesting can damage systems, so we want a paper trail.
 
-## 6. Authorized tool inventory
+## 6. Authorized tool inventory + Worker-Status
 
-These tools are intended to be wired in (Phase 2+) as Docker-isolated workers. They are **legitimately licensed for use** in this project per the agency's pentest-engagement contracts and internal use:
-
-| Tool        | Worker key            | Scope             | Phase | Purpose                                       |
-| ----------- | --------------------- | ----------------- | ----- | --------------------------------------------- |
-| nuclei      | `nuclei_safe/full`    | active_safe/intrusive | 2  | template-driven web vuln scanning             |
-| nmap        | `nmap_top1000/full`   | active_safe/intrusive | 2  | port discovery, service fingerprinting        |
-| sslyze      | `sslyze_deep`         | active_safe       | 2     | deep TLS audit                                |
-| testssl.sh  | (alt to sslyze)       | active_safe       | 2     | TLS misconfig                                  |
-| wpscan      | `cms_scan` / `wpscan_aggressive` | active_safe/intrusive | 2 | WordPress vuln scanning             |
-| ffuf        | `ffuf_dirs`           | active_intrusive  | 3     | content/path discovery                        |
-| sqlmap      | `sqlmap`              | active_intrusive  | 3     | SQL injection testing                         |
-| hydra       | `hydra_login`         | active_intrusive  | 3     | brute-force resistance testing of own/authorized auth endpoints |
-| amass / subfinder | `subdomain_passive` | passive_only  | 2  | subdomain enumeration (passive, OSINT-based)  |
+| Tool / Worker          | jobKey                  | Scope            | Status (Phase) | Notes |
+|---|---|---|---|---|
+| testssl.sh             | `sslyze_deep`           | active_safe      | ✅ deployed (3) | Cipher/Vuln/HSTS-Audit. SUPPRESS_IDS um RC4 + DNS_CAArecord erweitert. |
+| nuclei                 | `nuclei_safe`           | active_safe      | ✅ deployed (3) | ~13k Templates, ohne intrusive/dos/fuzz/brute-Tags. |
+| nmap                   | `nmap_top1000`          | active_safe      | ✅ deployed (3) | top 1000 Ports + service-version-detection. Risiko-Ports in Map. |
+| http_paths_probe       | `http_paths_probe`      | active_safe      | ✅ deployed (3) | robots.txt + /api/health + Auth-Gate + HTTP-Methods. |
+| service_classify       | `service_classify`      | passive_only     | ✅ deployed (4) | klassifiziert Hosts; triggert api_security_active via Rule 8. |
+| openapi_discovery      | `openapi_discovery`     | active_safe      | ✅ deployed (4) | holt OpenAPI/Swagger-Doc + extrahiert Endpoints. |
+| api_auth_probe         | `api_auth_probe`        | active_safe      | ✅ deployed (4) | typische Auth-pflichtige Pfade ohne Credentials probieren. |
+| api_cors_check         | `api_cors_check`        | active_safe      | ✅ deployed (4) | CORS-Reflection / Wildcard / null-Origin. |
+| api_rate_limit_safe    | `api_rate_limit_safe`   | active_safe      | ✅ deployed (4) | 30 Req/~10s auf /api/health → 429? |
+| subfinder + crt.sh     | `subdomain_passive`     | passive_only     | ✅ deployed (2) | bei `~/go/bin/subfinder` installiert. |
+| 13 OSINT-Worker        | div. (siehe Registry)   | passive_only     | ✅ deployed (2.7) | Auto-Chain via Rules 4+5. |
+| wpscan                 | `cms_scan` / `wpscan_aggressive` | active_safe/intrusive | ⚠️ Tool fehlt (gem install offen) | WordPress vuln scanning |
+| ffuf                   | `ffuf_dirs`             | active_intrusive | offen (3)        | content/path discovery |
+| sqlmap                 | `sqlmap`                | active_intrusive | offen (3)        | SQL injection testing |
+| hydra                  | `hydra_login`           | active_intrusive | offen (3)        | brute-force-resistance auf eigene/autorisierte Auth-Endpoints |
 
 When implementing one of these:
-1. Create a Dockerfile under `docker/workers/<tool>/`.
-2. Implement a `SecurityWorker` adapter under `src/lib/security/workers/active/<tool>.worker.ts` that shells out to the container with appropriate flags + timeout + output capture.
-3. Register it in `worker-registry.ts`.
-4. **Do not weaken the authorization gate** to make the tool "easier to test." Use the `internal_lab` authorization kind for development.
+1. Create a Dockerfile under `docker/workers/<tool>/` (für intrusive Worker — passive Workers laufen Node-native).
+2. Implement a `SecurityWorker` adapter under `src/lib/security/workers/{passive|active}/<tool>.worker.ts`.
+3. Register it in `worker-registry.ts` und in `worker.types.ts:WorkerJobKey`-Union ergänzen.
+4. **Do not weaken the authorization gate.** Use the `internal_lab` authorization kind for development.
+5. Scope-Begründung im Header dokumentieren (warum active_safe statt active_intrusive).
 
 ## 7. Dev commands
 
@@ -135,24 +153,34 @@ When implementing one of these:
 docker-compose up -d              # starts Postgres on 5454
 pnpm install
 ./schema-ready.sh                 # generates + applies Drizzle migrations
-pnpm run db:seed                  # seeds base users/roles
+pnpm run db:seed                  # seeds base users/roles + 8 Auto-Chain-Rules
 
 # Development
 pnpm run run:dev                  # nodemon on src/app.ts (port 8108)
+
+# Production-like (PM2 läuft lokal mit watch=enabled auf dist/)
+./restart.sh                      # full restart via PM2
+npx pm2 restart node-secu         # quick restart
+npx pm2 logs node-secu --lines 50 # logs
+npx pm2 list                      # status
 
 # Database
 ./schema-ready.sh                 # canonical migration command — DO NOT manually create SQL files
 pnpm run db:studio                # drizzle-kit studio for inspection
 pnpm run db:reset                 # nuclear option: clear → migrate → seed
 
-# Build
-pnpm run build                    # tsc + tsc-alias + copy public → dist/
+# Build (NICHT `npm run build` — der && failt wegen pre-existing template-errors)
+npx tsc -p tsconfig.json; npx tsc-alias -p tsconfig.json; cp -r public dist/public
 
 # Type sync to frontend
 pnpm run types:generate           # writes frontend-types.ts
 ```
 
 **Important:** Always use `./schema-ready.sh` for migrations. Do NOT hand-write SQL files in `drizzle/`. The script handles consolidation and archiving.
+
+**Pre-existing template-errors** in `generated/api/base/routes.{app_info,users}.ts` (NodeTemplateUser-Member fehlt) blockieren `npm run build` (wegen `&&`-Chain), aber `npx tsc` selbst emittiert trotzdem alle .js-Files. Workaround: direkter Aufruf wie oben.
+
+**Scan-Operations + DB-Queries:** `.claude/scan-operations.md` — komplette Operator-Anleitung inkl. curl-Beispielen, Live-Diagnose, Rule-Inspection.
 
 ## 8. Ports
 

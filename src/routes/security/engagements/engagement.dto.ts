@@ -102,6 +102,15 @@ export const engagementNoteBodySchema = z
     })
     .strict();
 
+// Phase 2.7 — OSINT-Specific endpoints
+export const osintEmailEntityBodySchema = z
+    .object({
+        email: z.string().email().max(320),
+        personId: z.number().int().positive().nullable().optional(),
+    })
+    .strict();
+export type OsintEmailEntityBody = z.infer<typeof osintEmailEntityBodySchema>;
+
 export const grantAuthBodySchema = z
     .object({
         entityId: z.number().int().positive(),

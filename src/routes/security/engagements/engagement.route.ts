@@ -14,6 +14,7 @@ import {
     engagementParamsSchema,
     engagementUpdateBodySchema,
     grantAuthBodySchema,
+    osintEmailEntityBodySchema,
 } from "./engagement.dto";
 
 const c = createContractRouter("/engagements", { tags: ["secu-engagements"] });
@@ -165,6 +166,34 @@ c.post(
         responses: [{ kind: "json", status: 201, data: z.any() }],
     }),
     engagementController.grantAuthorization.bind(engagementController),
+);
+
+// Phase 2.7 — OSINT Email-Entity Convenience-Endpoint.
+c.post(
+    "/:id/entities/email",
+    validate({ params: engagementParamsSchema, body: osintEmailEntityBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_engagement_osint_email_link",
+        summary: "Phase 2.7 — Lege email_address-Entity an, verlinke zur Person, Auto-Chain greift",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema, body: osintEmailEntityBodySchema, bodyContentType: "application/json" },
+        responses: [{ kind: "json", status: 201, data: z.any() }],
+    }),
+    engagementController.linkOsintEmailEntity.bind(engagementController),
+);
+
+// Phase 2.7 — Signal-Chain-Log-Liste pro Engagement.
+c.get(
+    "/:id/signal-chains",
+    validate({ params: engagementParamsSchema }),
+    contract({
+        operationId: "secu_engagement_signal_chains_list",
+        summary: "Phase 2.7 — Listet OSINT-Signal-Chain-Logs (manuelle person_full-Trigger + Auto-Chains)",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema },
+        responses: [{ kind: "json", status: 200, data: z.any() }],
+    }),
+    engagementController.listSignalChains.bind(engagementController),
 );
 
 export default router;

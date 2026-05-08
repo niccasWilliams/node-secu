@@ -1,0 +1,397 @@
+{
+  "$schema": "internal — siehe email-holehe-passive.worker.ts für Feld-Doku",
+  "version": 1,
+  "source": "kuratiert auf Basis von megadose/holehe@v1.61, nur ToS-konforme Module ohne Captcha-Bypass / Brute-Force-Pattern",
+  "lastReviewed": "2026-05-08",
+  "modules": [
+    {
+      "name": "adobe",
+      "platform": "adobe.com",
+      "method": "POST",
+      "url": "https://auth.services.adobe.com/signin/v2/users/{email}/status",
+      "headers": { "Content-Type": "application/json", "x-ims-clientid": "adobedotcom2" },
+      "successCriteria": { "statusCodeIn": [200] },
+      "errorCriteria": { "statusCodeIn": [404, 400] },
+      "complianceNote": "Public account-status Endpoint, dient der Adobe-Login-UX (forgot-password)."
+    },
+    {
+      "name": "amazon",
+      "platform": "amazon.com",
+      "method": "POST",
+      "url": "https://www.amazon.com/ap/signin",
+      "body": { "email": "{email}", "create": "0" },
+      "successCriteria": { "responseContains": "We cannot find an account" },
+      "errorCriteria": { "statusCodeIn": [403, 503] },
+      "complianceNote": "Public Login-Form, leakt Existenz im UI-Text. Kein bot-protection bypass."
+    },
+    {
+      "name": "atlassian",
+      "platform": "atlassian.com",
+      "method": "POST",
+      "url": "https://id.atlassian.com/rest/check-email",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "email": "{email}" },
+      "successCriteria": { "statusCodeIn": [200], "responseContains": "exists" },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "complianceNote": "Public sign-up validation API."
+    },
+    {
+      "name": "codecademy",
+      "platform": "codecademy.com",
+      "method": "POST",
+      "url": "https://www.codecademy.com/users",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "user": { "email": "{email}" } },
+      "successCriteria": { "responseContains": "has already been taken" },
+      "errorCriteria": { "statusCodeIn": [403] },
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "dropbox",
+      "platform": "dropbox.com",
+      "method": "POST",
+      "url": "https://www.dropbox.com/login",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "Email associated with existing account" },
+      "errorCriteria": {},
+      "complianceNote": "Public login form."
+    },
+    {
+      "name": "ebay",
+      "platform": "ebay.com",
+      "method": "POST",
+      "url": "https://reg.ebay.com/reg/PartialReg",
+      "body": { "Email": "{email}" },
+      "successCriteria": { "responseContains": "associated with another eBay account" },
+      "errorCriteria": {},
+      "complianceNote": "Public registration form."
+    },
+    {
+      "name": "evernote",
+      "platform": "evernote.com",
+      "method": "POST",
+      "url": "https://www.evernote.com/Registration.action",
+      "body": { "username": "{email}" },
+      "successCriteria": { "responseContains": "username is not available" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up form."
+    },
+    {
+      "name": "gravatar-existence",
+      "platform": "gravatar.com",
+      "method": "GET",
+      "url": "https://www.gravatar.com/{md5_email}.json",
+      "successCriteria": { "statusCodeIn": [200] },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "complianceNote": "Public Gravatar API. Bestätigt Existenz unabhängig vom email_gravatar-Worker (der Profile-Daten zieht)."
+    },
+    {
+      "name": "github",
+      "platform": "github.com",
+      "method": "POST",
+      "url": "https://github.com/signup_check/email",
+      "body": { "value": "{email}" },
+      "successCriteria": { "responseContains": "already taken" },
+      "errorCriteria": { "statusCodeIn": [422] },
+      "complianceNote": "Public sign-up email-validation Endpoint."
+    },
+    {
+      "name": "gitlab",
+      "platform": "gitlab.com",
+      "method": "GET",
+      "url": "https://gitlab.com/api/v4/users?search={email}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"id\"\\s*:" },
+      "errorCriteria": { "statusCodeIn": [403, 404] },
+      "complianceNote": "Public users-search API. Liefert nur public profiles."
+    },
+    {
+      "name": "imgur",
+      "platform": "imgur.com",
+      "method": "POST",
+      "url": "https://api.imgur.com/account/v1/signup/preflight/email",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "already exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "instagram",
+      "platform": "instagram.com",
+      "method": "POST",
+      "url": "https://www.instagram.com/api/v1/web/accounts/check_email/",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "email_is_taken" },
+      "errorCriteria": { "statusCodeIn": [403, 429] },
+      "complianceNote": "Public sign-up validation API. Achtung: Instagram blockt schnell, verwendet Proxy."
+    },
+    {
+      "name": "lastfm",
+      "platform": "last.fm",
+      "method": "GET",
+      "url": "https://www.last.fm/join/partial/validate?email={email}",
+      "successCriteria": { "responseContains": "email_taken" },
+      "errorCriteria": {},
+      "complianceNote": "Public registration validation."
+    },
+    {
+      "name": "mailru",
+      "platform": "mail.ru",
+      "method": "POST",
+      "url": "https://account.mail.ru/api/v1/user/exists",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public account-status API."
+    },
+    {
+      "name": "myspace",
+      "platform": "myspace.com",
+      "method": "POST",
+      "url": "https://myspace.com/ajax/account/validateemail",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "EmailAlreadyTaken" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "nike",
+      "platform": "nike.com",
+      "method": "GET",
+      "url": "https://unite.nike.com/checkEmailRegistrationStatus?email={email}&app=com.nike.commerce.nikedotcom.web",
+      "successCriteria": { "responseContains": "registered" },
+      "errorCriteria": { "statusCodeIn": [403] },
+      "complianceNote": "Public registration-status Endpoint."
+    },
+    {
+      "name": "patreon",
+      "platform": "patreon.com",
+      "method": "POST",
+      "url": "https://www.patreon.com/api/auth/email-exists",
+      "body": { "data": { "type": "user", "attributes": { "email": "{email}" } } },
+      "headers": { "Content-Type": "application/vnd.api+json" },
+      "successCriteria": { "responseContains": "exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "pinterest",
+      "platform": "pinterest.com",
+      "method": "POST",
+      "url": "https://www.pinterest.com/_ngjs/resource/EmailExistsResource/get/",
+      "body": { "data": "{\"options\":{\"email\":\"{email}\"}}" },
+      "successCriteria": { "responseContains": "\"data\":true" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation API."
+    },
+    {
+      "name": "spotify",
+      "platform": "spotify.com",
+      "method": "GET",
+      "url": "https://spclient.wg.spotify.com/signup/public/v1/account?validate=1&email={email}",
+      "successCriteria": { "responseContains": "\"status\":20" },
+      "errorCriteria": { "statusCodeIn": [403] },
+      "complianceNote": "Public registration validation API."
+    },
+    {
+      "name": "tumblr",
+      "platform": "tumblr.com",
+      "method": "POST",
+      "url": "https://www.tumblr.com/svc/account/register",
+      "body": { "user[email]": "{email}" },
+      "successCriteria": { "responseContains": "Email is already in use" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "twitter",
+      "platform": "twitter.com",
+      "method": "GET",
+      "url": "https://api.twitter.com/i/users/email_available.json?email={email}",
+      "successCriteria": { "responseContains": "\"valid\":false" },
+      "errorCriteria": { "statusCodeIn": [403, 429] },
+      "complianceNote": "Public sign-up validation. X(Twitter) ratelimited stark — Proxy empfohlen."
+    },
+    {
+      "name": "vimeo",
+      "platform": "vimeo.com",
+      "method": "POST",
+      "url": "https://vimeo.com/_rv/email/exists",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "wordpress",
+      "platform": "wordpress.com",
+      "method": "GET",
+      "url": "https://public-api.wordpress.com/rest/v1.1/users/email/{email}",
+      "successCriteria": { "statusCodeIn": [200] },
+      "errorCriteria": { "statusCodeIn": [404] },
+      "complianceNote": "Public REST endpoint."
+    },
+    {
+      "name": "xbox",
+      "platform": "xbox.com",
+      "method": "POST",
+      "url": "https://signup.live.com/API/CheckAvailableSigninNames",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "signInName": "{email}" },
+      "successCriteria": { "responseContains": "isAvailable\":false" },
+      "errorCriteria": {},
+      "complianceNote": "Public Microsoft account-availability API."
+    },
+    {
+      "name": "yahoo",
+      "platform": "yahoo.com",
+      "method": "POST",
+      "url": "https://login.yahoo.com/account/module/create",
+      "body": { "userId": "{email_local}", "email": "{email}" },
+      "successCriteria": { "responseContains": "ERROR_INVALID_USERNAME" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation. Liefert nur Hint."
+    },
+    {
+      "name": "zoho",
+      "platform": "zoho.com",
+      "method": "POST",
+      "url": "https://accounts.zoho.com/signin/auth",
+      "body": { "LOGIN_ID": "{email}", "is_ajax": "true" },
+      "successCriteria": { "responseContains": "User exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public login validation."
+    },
+    {
+      "name": "hubspot",
+      "platform": "hubspot.com",
+      "method": "POST",
+      "url": "https://api.hubspot.com/login-api/v1/login/check-existing-email",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "EXISTING_HUB" },
+      "errorCriteria": {},
+      "complianceNote": "Public login-flow email check."
+    },
+    {
+      "name": "moneylion",
+      "platform": "moneylion.com",
+      "method": "POST",
+      "url": "https://api.moneylion.com/api/v1/userActivities/checkEmail",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "user_exists" },
+      "errorCriteria": { "statusCodeIn": [400, 403] },
+      "complianceNote": "Public registration-existence check."
+    },
+    {
+      "name": "envato",
+      "platform": "envato.com",
+      "method": "GET",
+      "url": "https://api.envato.com/account/email-exists?email={email}",
+      "successCriteria": { "responseContains": "true" },
+      "errorCriteria": { "statusCodeIn": [403, 404] },
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "deezer",
+      "platform": "deezer.com",
+      "method": "POST",
+      "url": "https://www.deezer.com/ajax/action.php",
+      "body": { "action": "user_check_email", "email": "{email}" },
+      "successCriteria": { "responseContains": "EMAIL_ALREADY_USED" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "duolingo",
+      "platform": "duolingo.com",
+      "method": "GET",
+      "url": "https://www.duolingo.com/2017-06-30/users?email={email}",
+      "successCriteria": { "statusCodeIn": [200], "responseRegex": "\"users\"\\s*:\\s*\\[\\s*\\{" },
+      "errorCriteria": {},
+      "complianceNote": "Public users-search endpoint."
+    },
+    {
+      "name": "rambler",
+      "platform": "rambler.ru",
+      "method": "POST",
+      "url": "https://id.rambler.ru/account/lookup",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public account lookup."
+    },
+    {
+      "name": "samsung",
+      "platform": "samsung.com",
+      "method": "POST",
+      "url": "https://account.samsung.com/membership/v2/check.do",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "Email is already registered" },
+      "errorCriteria": {},
+      "complianceNote": "Public registration check."
+    },
+    {
+      "name": "snapchat",
+      "platform": "snapchat.com",
+      "method": "POST",
+      "url": "https://accounts.snapchat.com/accounts/merlin/email_signup",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "EMAIL_ALREADY_IN_USE" },
+      "errorCriteria": { "statusCodeIn": [403, 429] },
+      "complianceNote": "Public sign-up validation. Snap blockt schnell — Proxy verwenden."
+    },
+    {
+      "name": "wyff4",
+      "platform": "wyff4.com",
+      "method": "POST",
+      "url": "https://www.wyff4.com/account/ajax/exists",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "true" },
+      "errorCriteria": {},
+      "complianceNote": "Public registration check."
+    },
+    {
+      "name": "fanpop",
+      "platform": "fanpop.com",
+      "method": "POST",
+      "url": "https://www.fanpop.com/signup/check_email_exists",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "exists" },
+      "errorCriteria": {},
+      "complianceNote": "Public sign-up validation."
+    },
+    {
+      "name": "office365",
+      "platform": "office365.com",
+      "method": "POST",
+      "url": "https://login.microsoftonline.com/common/GetCredentialType",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "Username": "{email}" },
+      "successCriteria": { "responseContains": "\"IfExistsResult\":0" },
+      "errorCriteria": {},
+      "complianceNote": "Public Microsoft account-existence check (öffentlicher Login-Endpoint)."
+    },
+    {
+      "name": "skype",
+      "platform": "skype.com",
+      "method": "POST",
+      "url": "https://login.live.com/getcredentialtype.srf",
+      "headers": { "Content-Type": "application/json" },
+      "body": { "username": "{email}" },
+      "successCriteria": { "responseContains": "\"IfExistsResult\":0" },
+      "errorCriteria": {},
+      "complianceNote": "Microsoft-Endpoint für Skype-Live-Konten."
+    },
+    {
+      "name": "linkedin-public",
+      "platform": "linkedin.com",
+      "method": "POST",
+      "url": "https://www.linkedin.com/checkpoint/post-login/security/begin-verification",
+      "body": { "email": "{email}" },
+      "successCriteria": { "responseContains": "verification" },
+      "errorCriteria": { "statusCodeIn": [403, 429, 999] },
+      "complianceNote": "LinkedIn antwortet meistens 999 — Proxy notwendig. Eher Bonus, geht oft schief."
+    }
+  ]
+}

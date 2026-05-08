@@ -3,10 +3,12 @@ import { responseHandler } from "@/lib/communication";
 import { auditLogService } from "@/lib/security/audit/audit-log.service";
 import { entityService } from "@/lib/security/entities/entity.service";
 import { relationshipService } from "@/lib/security/entities/relationship.service";
+import { osintPersonFullService } from "@/lib/security/osint/person-full.service";
 import type { ValidatedRequest } from "@/api-contract/contract.middleware";
 import { getUserIdFromRequest } from "@/util/utils";
 import type {
     EntityCreateBody,
+    EntityEnrichFullBody,
     EntityListQuery,
     EntityRelationshipBody,
     EntityTagBody,
@@ -107,6 +109,41 @@ class EntityController {
             const body = v<EntityTagBody>(req, "body");
             await entityService.addTag(id, body.tag, body.color ?? null);
             return responseHandler(res, 201, undefined, { tag: body.tag });
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    /**
+     * Phase 2.7 — POST /entities/:id/enrich/full
+     * Triggert das osint_person_full-Aggregat: lädt verlinkte Identitäten und
+     * startet pro Identität das passende OSINT-Playbook. Schreibt initialen
+     * signal_chain_log-Eintrag, Sub-Runs laufen async. Liefert chain-log-ID
+     * direkt zurück.
+     */
+    async enrichFull(req: Request, res: Response) {
+        try {
+            const { id } = v<{ id: number }>(req, "params");
+            const body = v<EntityEnrichFullBody>(req, "body");
+            const userId = (await getUserIdFromRequest(req)) ?? null;
+
+            const result = await osintPersonFullService.run({
+                engagementId: body.engagementId,
+                rootEntityId: id,
+                triggeredByUserId: userId,
+            });
+            await auditLogService.log({
+                action: "entity.enrich_full",
+                actorUserId: userId,
+                engagementId: body.engagementId,
+                targetType: "entity",
+                targetId: id,
+                payload: {
+                    signalChainLogId: result.signalChainLogId,
+                    subRuns: result.subPlaybookRuns.map((s) => ({ runId: s.runId, playbookKey: s.playbookKey })),
+                },
+            });
+            return responseHandler(res, 202, undefined, result);
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");
         }

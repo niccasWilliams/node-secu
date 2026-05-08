@@ -247,11 +247,159 @@ POST   /engagements                  # mit body {kind:'solo_lab', primaryDomain:
 
 **Done-Definition Phase 2.5:**
 
-- [ ] Regeln per `POST /rules` deklarativ anlegbar
-- [ ] Beim Anlegen einer WordPress-Subdomain triggert die Recon-Pipeline automatisch
-- [ ] Rule-Auslösung in `audit_log` nachvollziehbar
-- [ ] Zwei Beispiel-Regeln im Seed
-- [ ] Disable/Enable einer Rule wirkt sofort, kein Service-Neustart nötig
+- [x] Regeln per `POST /rules` deklarativ anlegbar (CRUD inkl. PATCH/DELETE, Zod-Validation, AccessControl-Gate)
+- [x] Beim Anlegen einer WordPress-Subdomain triggert die Recon-Pipeline automatisch (Seed-Rule "WordPress subdomain → web_recon_passive", default disabled — Operator entscheidet bewusst per PATCH `enabled=true`)
+- [x] Rule-Auslösung in `audit_log` nachvollziehbar (`rule.fired` mit ruleId, eventType, actionResult; `rule.condition_failed` bei Eval-Fehlern)
+- [x] Drei Beispiel-Regeln im Seed (notify_boss critical, WP→recon disabled, ACME-Email→tag — überfüllt das "≥2"-Minimum)
+- [x] Disable/Enable einer Rule wirkt sofort, kein Service-Neustart nötig (`ruleService.update`/`create`/`delete` invalidieren den In-Memory-Cache)
+- [ ] Migration `0003_brainy_morlun.sql` via `./schema-ready.sh` ausführen *(Operator-Action — Code ready, DB war beim Build offline)*
+
+**Phase-2.5-Implementierungs-Notizen:**
+
+- **Event-Bus** (`src/lib/security/rules/event-bus.ts`) — node:events EventEmitter, fire-and-forget. Vier Topics: `entity.created`, `entity.updated`, `finding.created`, `playbook_run.completed`. `schedule` ist im Enum vorbereitet, aber vom Evaluator (noch) nicht abonniert — Phase-2.5+ kann cron-basiertes Feuern ergänzen.
+- **JSON-Logic-Evaluator** (`json-logic.ts`) — minimaler Subset (`==`, `!=`, `<`/`>`/etc., `and`/`or`/`not`, `in`, `contains`, `var`, `missing`, `if`, `starts_with`/`ends_with`, `match`). Bewusst KEIN `eval`/Function-Constructor — auditierbar, sicher. Spec-konform erweiterbar ohne Migration (`condition` ist jsonb).
+- **Cache-Layer im rule.service** — enabled rules werden nach erstem Zugriff im Speicher gehalten; CRUD-Touches invalidieren den Cache → Disable/Enable greift sofort. `recordFire` invalidiert NICHT (nur Telemetrie).
+- **Action-Renderer** — Templates `{{path.to.value}}` für `notify_boss.message` und `create_finding.descriptionTemplate`; Pfade lesen aus dem Condition-Data-Snapshot (`engagement.id`, `entity.canonicalKey`, `finding.severity`, …).
+- **Boss-Notify** spricht `BOSS_API_URL/notifications` mit Headern `x-app-id: node-secu`, `x-api-key: BOSS_API_KEY`. Skipped sauber wenn `BOSS_API_URL` fehlt; Fehler werden im Audit-Log markiert (success=false), brechen aber andere Rules NICHT ab.
+- **Authorization-Hygiene:** Die WP→recon-Beispielregel ist `enabled=false` im Seed, damit beim ersten Start kein Auto-Scan auf nicht-autorisierte Subdomains feuert. Operator schaltet sie scharf, wenn er weiß was er tut.
+
+---
+
+### Phase 2.7 — OSINT-Identity-Enrichment-Layer *(Operator-Vertiefungsthema, 3–4 Wochen, vor Phase 3)*
+
+> **Persönliches Vertiefungs-Thema des Operators.** Social-Engineering-Recherche ist das Herzstück realistischer Pentest-Vorarbeit. Diese Phase macht den Identity-Graph (Phase 1) zur **auto-anreichernden OSINT-Maschine** — aus minimalen Signalen (eine Email, ein Username, eine Domain) werden über deterministische Worker und Rule-Engine-Chains weitere Signale erschlossen. Cross-Identity-Hits ("dieselbe Person taucht in zwei Engagements auf") werden automatisch sichtbar. Tool-Stack ist bewusst lokal & passiv-only — Stealth-Scraping (LinkedIn/X) wartet auf Phase 3 mit IP-Rotation, Dark-Web-Crawling auf Phase 2.9 mit `tor_proxy`-Worker.
+
+**Designentscheidungen (aus Operator-Klarstellung):**
+
+1. **Eigene Entity-Kinds, nicht JSON-Blobs.** Email/Username/Phone/Social-Account werden first-class-Knoten im Graph — Begründung: dieselbe Email/Username kann zu mehreren Personen gehören, Cross-Person-Korrelationen sind das Kernfeature ("dieselbe Email taucht bei zwei Targets auf"). Passt zu Designprinzip §1.2 (Identitäten global).
+2. **Authorization-Gate bleibt heilig (§1.7), aber operativ unsichtbar.** Alle Worker dieser Phase deklarieren `requiredScope: "passive_only"` → das `canScan()`-Gate lässt sie *immer* durch, kein Auth-Record nötig. Falls in Phase 2.8+ ein Worker tatsächlich Ziel-Server kontaktiert (SMTP-Verify, Phishing-Versand) → eigene aktive Worker-Klasse mit `active_safe`/`active_intrusive`.
+3. **Voll-Auto-Chain mit Performance-Gate.** Rule-Engine (Phase 2.5) feuert auf jede neue Email/Username/Person — *aber* jeder Provider hat einen Concurrency-Limiter (`p-limit` pro provider-key) und ein Per-Engagement-Budget (default 1000 OSINT-Requests/h). 429-Backoff ist persistiert, parallele Engagements können sich nicht gegenseitig die Provider-Quotas killen.
+4. **Drei-Tier-Quellenstrategie.** Tier 1: Free/Public (gravatar, GitHub-public, MX/DNS, RDAP, CT-Logs, Holehe-passive, Maigret/Sherlock/WhatsMyName). Tier 2 (Phase 2.8, opt-in): Paid Aggregators (Hunter, Apollo, Clearbit, HIBP, DeHashed, LeakCheck). Tier 3 (Phase 2.9): Dark-Web + Stealer-Logs. Phase 2.7 liefert nur Tier 1 — die Architektur ist aber so gebaut, dass 2.8/2.9 nur neue Provider-Adapter einklinken.
+
+**Schema-Erweiterungen** (`src/db/individual/individual-schema.ts`):
+
+- `secu_entity_kind` ENUM erweitern um: `email_address`, `username`, `phone_number`, `social_account` (via Postgres `ALTER TYPE ADD VALUE` — kein Table-Rewrite).
+- `entities.data`-Schemas pro neuem Kind (typed in TS, jsonb in DB):
+  - `email_address` → `{ local, domain, mxValid, mxHosts[], spfRecord?, dmarcPolicy?, dkimSelectorsFound[], gravatarHash, gravatarFound, gravatarProfileUrl?, pwnedSources[], lastValidated }`
+  - `username` → `{ value, normalized, observedPlatforms[] }`
+  - `phone_number` → `{ e164, region, type: 'mobile'|'landline'|'voip'|'unknown', carrier? }`
+  - `social_account` → `{ platform, handle, profileUrl, verified, lastSeenAt, displayName?, bio?, followerCount? }`
+- Neue Tabelle `secu_osint_provider_state` — id, provider_key (UNIQUE), request_count, window_start, last_429_at, paused_until, last_error. Pro Provider Rate-Limit-Bookkeeping, persistent über Restarts.
+- Neue Tabelle `secu_signal_chain_log` — id, engagement_id, root_entity_id, signal_chain (jsonb mit array of {step, provider, foundEntityIds, ms}), started_at, finished_at. Auditierbare Chain-Spuren ("aus dieser Email haben wir über gravatar+github+holehe N Signale gefunden") — Vorarbeit für Phase 6 Reporting.
+- Neue Spalte `secu_engagements.osint_budget_per_hour` (int, default 1000) — Operator-konfigurierbares Hard-Limit.
+- `canonical-key.ts` erweitert: Email lowercased+trimmed, Username lowercased+platform-Hash-Discriminator wenn Plattform bekannt, Phone E.164, Social `{platform}:{handle.lower}`.
+
+**Neue Worker** (alle `passive_only`, lokal):
+
+| Worker-Key | Input-Kind | Output | Quelle |
+|---|---|---|---|
+| `email_dns_signals` | email_address | mxValid, mxHosts, SPF, DMARC, DKIM-Selektoren → Findings (`email_security`) | DNS via `node:dns/promises` |
+| `email_gravatar` | email_address | social_account-Draft (gravatar-Profile-URL), avatar-URL, `data.gravatarFound=true` | `api.gravatar.com` (MD5(lowercased)) |
+| `email_holehe_passive` | email_address | social_account-Drafts (Existenz auf Adobe/Spotify/Pinterest/Codecademy/etc.) | Eigenes TS-Subset von Holehe — nur ToS-konforme Endpoints, je mit `complianceNote` |
+| `email_github_commits` | email_address | github-`social_account`, repo-Hits → context-Findings | `api.github.com/search/commits?q=author-email:...` (mit `GH_TOKEN` 5000/h, ohne 30/min) |
+| `email_breach_check` | email_address | Findings (kategorie=`leak`), pwnedSources-Update | `BreachProvider`-Interface; Phase 2.7 nur HIBP-Adapter (skipped wenn `HIBP_API_KEY` fehlt) — DeHashed/LeakCheck-Adapter folgen in 2.8 |
+| `email_pattern_inference` | asset_domain | Email-Pattern-Hypothesen (`{first}.{last}@`, `{f}{last}@`, …) mit confidence aus GitHub-Commit-Sample | Statistische Inferenz aus `email_github_commits`-Output über die Domain |
+| `domain_ct_email_mining` | asset_domain | email_address-Entities aus RFC822-SAN-Records | `crt.sh` (existiert) — neuer Filter-Modus für RFC822-SANs |
+| `domain_github_personnel` | asset_domain | person/email_address/username-Triples | `api.github.com/search/users?q=...@domain` + commits-Mining |
+| `username_multiplatform` | username | social_account-Drafts (~3000 Plattformen) | Konsolidierte JSON-DB aus Maigret + Sherlock + WhatsMyName, eigener TS-Worker mit Per-Plattform-Concurrency-Cap |
+| `phone_normalize` | phone_number | E.164 + Region + Type | `libphonenumber-js` |
+| `social_account_validate` | social_account | profileUrl-Reachability + last-active-Hint + displayName/bio (wenn Plattform-API public) | HTTP HEAD/GET, ratelimited per platform |
+| `email_alias_correlate` | email_address | `entity_relationships kind="alias_of"` zwischen Plus-Adressen / Lowercase-Varianten / Provider-Mappings (gmail.com↔googlemail.com) | Eigener Service, keine externe Quelle |
+| `cross_engagement_identity_hit` | * (any) | Marker-Finding wenn Entity in ≥2 Engagements aktiv ist | Trigger via Rule, keine Quelle nötig |
+
+**Neue Playbooks** (`src/lib/security/playbooks/definitions/`):
+
+- `osint_email_passive` — Trigger: email_address. Steps:
+  1. `email_dns_signals` (immer)
+  2. parallel: `email_gravatar`, `email_github_commits`, `email_breach_check` (skip wenn provider-key fehlt)
+  3. `email_alias_correlate` (lokal)
+  4. Discovered usernames/socials → emit Events → Rule-Engine triggert Folge-Playbooks
+- `osint_username_passive` — Trigger: username. Steps:
+  1. `username_multiplatform` (parallel intern, ~3000 Plattformen mit Per-Plattform-Cap)
+  2. `social_account_validate` (parallel über alle Hits)
+- `osint_organization_recon` — Trigger: organization mit verlinkter `asset_domain` ODER asset_domain mit Engagement-Role `primary_target`. Steps:
+  1. `domain_ct_email_mining` + `domain_github_personnel` parallel
+  2. `email_pattern_inference` (auf den entdeckten Sample)
+  3. Discovered emails → emit Events → `osint_email_passive` chain-läuft per-email
+- `osint_person_full` — Manuell startbar (`POST /entities/:id/enrich/full`). Wenn Person verlinkte Emails/Usernames/Phones hat → triggert die jeweiligen Playbooks für alle Kinder-Entities, wartet auf Completion, generiert `signal_chain_log`.
+
+**Concurrency- & Rate-Limit-Layer** (`src/lib/security/osint/`):
+
+- `provider-limiter.ts` — Singleton-Map mit `p-limit`-Pool pro provider-key + Token-Bucket für rate (req/sec). Default-Limits:
+
+| Provider | Concurrency | Rate | Notes |
+|---|---|---|---|
+| `gravatar` | 5 | unlimited | CDN, friendly |
+| `github` (no token) | 1 | 30/min | unauthenticated |
+| `github` (with `GH_TOKEN`) | 3 | 5000/h | scopes: `public_repo, read:user` |
+| `crt.sh` | 1 | 10/min | sehr empfindlicher Server |
+| `dns` | 50 | unlimited | lokaler Resolver |
+| `hibp` | 1 | 1.5/sec | rate-limited paid API |
+| `holehe-platform-X` | 1 pro Plattform | 5/min | jede Plattform eigenes Limit |
+| `username-platform-X` | 1 pro Plattform | 10/min | aus konsolidierter DB |
+
+- `provider-state.service.ts` — persistiert Counter + 429-Backoff in `secu_osint_provider_state`. Bei 429: `paused_until = now + min(2^retries * 60s, 1h)`. Worker-Runner respektiert `paused_until` → setzt `worker_run.status = "skipped"` mit `error: "provider_paused:..."`.
+- `engagement-budget.service.ts` — pro Engagement Sliding-Window-Counter. Wenn Budget exceeded → Worker-Run skipped mit `error: "engagement_osint_budget_exceeded"` — Operator wird einmal pro Stunde via `notify_boss` informiert (damit nichts unbemerkt blockiert).
+
+**Auto-Chain — Default-Seed-Rules** (alle `enabled=true` außer cross-engagement, das wird laut bei first-use):
+
+| Rule | Trigger | Action |
+|---|---|---|
+| "Email entdeckt → passive Recon" | `entity.created` kind=`email_address` | `start_playbook osint_email_passive` |
+| "Username entdeckt → cross-platform check" | `entity.created` kind=`username` | `start_playbook osint_username_passive` |
+| "Domain als primary_target → Personnel-Mining" | `entity.created` + engagement_role=`primary_target` + kind=`asset_domain` | `start_playbook osint_organization_recon` |
+| "Pwned-Finding → Person taggen" | `finding.created` category=`leak` | `tag_entity tag=compromised_credentials` (auf verlinkter Person, falls vorhanden) |
+| "Cross-Engagement-Hit" | `entity.updated` (Entity in ≥2 aktiven Engagements) | `notify_boss` "🎯 cross-engagement identity hit: {{entity.displayName}}" |
+
+**Done-Definition Phase 2.7:**
+
+- [ ] Schema-Migration via `./schema-ready.sh` durch (4 neue Entity-Kinds, 2 neue Tabellen, 1 neue Spalte)
+- [ ] `canonical-key.ts` erweitert + Tests für alle 4 neuen Kinds (Plus-Address-Konservativität, gmail/googlemail-Equivalence)
+- [ ] 13 OSINT-Worker (Tabelle oben) implementiert, je mit Tests gegen Fixtures
+- [ ] 4 Playbooks deklariert + Tests dass Conditions/DAG funktionieren + dass Discovered-Entities Events feuern
+- [ ] Provider-Limiter mit Tests (p-limit + Token-Bucket + 429-Persistenz + paused_until-Honoring)
+- [ ] Engagement-Budget mit Test dass Skipped-Runs sauber loggen
+- [ ] 5 Default-Seed-Rules (Tabelle oben)
+- [ ] API-Endpoint `POST /engagements/:id/entities/email { email, personId? }` legt email_address-Entity an + verlinkt zur Person + Auto-Chain greift sofort
+- [ ] API-Endpoint `POST /entities/:id/enrich/full` triggert `osint_person_full` manuell und gibt Chain-Log-ID zurück
+- [ ] API-Endpoint `GET /engagements/:id/signal-chains` listet Chain-Logs des Engagements
+- [ ] `audit_log` enthält bei jedem OSINT-Worker-Run `osint.passive.{worker_key}` mit Provider-Quota-State
+- [ ] Demo-Seed: ACME-Engagement bekommt eine reale Test-Domain (`example.com` o.ä.), nach `db:reset` läuft Auto-Chain durch und füllt Graph mit ≥10 entdeckten Email/Username/Social-Entities (deterministisch via gemockte Provider in Tests, real bei manuellem Run)
+- [ ] `frontend-types.ts` regeneriert
+
+**Phase-2.7-Implementierungs-Notizen:**
+
+- **Username-Plattform-DB konsolidiert, kein Subprocess.** Maigret (~3000), Sherlock (~400), WhatsMyName (~600) werden NICHT als CLI-Subprocess eingebunden (zu fragil + Python-Dependency-Hell). Stattdessen: deren Plattform-DBs zu einer einzigen `data/osint/username-platforms.json` deduplizieren (~3500 unique Plattformen mit Feldern `name, urlPattern, successCriteria (status_code | regex | contains_text), errorCriteria, rateHint, complianceTag`). Eigener TS-Worker liest die Liste, fragt jede Plattform mit Per-Platform-Concurrency-Cap an. Updates der Liste sind ein Git-Submodul / Vendoring per script. Wartungsaufwand: sehr niedrig, weil Plattform-Patterns selten ändern.
+- **Holehe-Subset:** Holehe (https://github.com/megadose/holehe) hat ~120 Module. Phase 2.7 portiert die ToS-konformen Top 30 (Adobe, Amazon, Spotify, Pinterest, Codecademy, …) — keine Module die bewusst Captcha probieren oder Brute-Force-Pattern triggern. Liste als YAML im Repo, jede mit `complianceNote`. Operator kann pro Engagement weitere ein/ausschalten via `engagements.osint_holehe_modules` (jsonb-Array, default `["*-curated"]`).
+- **GitHub-OSINT-Token-Strategie:** ohne `GH_TOKEN` env nur 30 req/min — schnell rate-limited bei großen Domains. Token wird optional aus env gelesen, Worker emittiert `worker_run.skipped="github_token_missing"` mit klarer Operator-Anweisung. Token-Scope: nur `public_repo, read:user`, kein write. Doku in `CLAUDE.md` §6.
+- **HIBP / Breach-Provider-Interface:** Phase 2.7 nur HIBP-Adapter, aber `BreachProvider`-Interface so designed dass DeHashed/LeakCheck/IPQS in Phase 2.8 nur neue Klassen sind. `BreachHit { source, breachName, breachDate, dataClasses[], severity }` ist provider-neutral.
+- **MD5-Lowercase-Trim für Gravatar:** `crypto.createHash('md5').update(email.trim().toLowerCase()).digest('hex')` — Standard. Gravatar liefert `{ entry: [{ profileUrl, hash, requestHash, … }] }` JSON wenn Profil existiert, 404 wenn nicht.
+- **Email-Normalisierung — bewusste Konservativität:** Plus-Adressen (`x+tag@gmail.com`) und Subdomain-Aliase werden NICHT zusammengezogen, sondern als separate Entities + `entity_relationships kind="alias_of"` modelliert. Begründung: für Gmail sind plus-tags semantisch identisch, aber für andere Provider nicht. gmail.com↔googlemail.com ist die einzige Hartcoded-Equivalence (per `email_alias_correlate`).
+- **MX-Findings:** Email-Domain mit `null MX` (RFC 7505) → Auto-Finding kategorie=`email_security` severity=`info` "Domain accepts no email — likely typo or non-mailable". Sehr nützliches Pentest-Signal (Typo-Squatting-Detection). Email-Domain ohne MX und ohne A-Record → severity=`low` "Email-Domain unresolvable".
+- **Cross-Identity-Hits sind Goldwert:** wenn `username_multiplatform` einen GitHub-Account findet, der schon in einem ANDEREN aktiven Engagement existiert → Rule-Engine `notify_boss` mit Subject "🎯 cross-engagement identity hit". Dieses Pattern ist *der* Business-Wert von "Identitäten global" (Designprinzip §1.2). Einzige Default-Rule die laut wird, weil sie Operator-Awareness braucht.
+- **Concurrency-Modell ist Engagement-bewusst, nicht global:** `provider-limiter` ist global (schützt Provider-Quotas), `engagement-budget` ist per Engagement (schützt Operator-Geldbeutel + System-Performance). Beide gemeinsam verhindern dass 5 parallel laufende OSINT-Chains das System killen. Worker-Runs die rate-limited werden, gehen in Status `skipped` mit klarem `error`-String — der Runner zählt sie nicht als "failed" (kein Alarm).
+- **Audit-Log explizit:** jeder OSINT-Worker-Run schreibt `osint.passive.{worker_key}` mit `targetType="entity"`, `targetId`, `metadata={provider, providerCounter, foundEntityIds[], findingIds[]}`. Operator kann post-hoc die komplette OSINT-Aktivität pro Engagement in einem SELECT abfragen.
+- **Bewusst NICHT in Phase 2.7:**
+  - LinkedIn / X(Twitter) / Reddit / Instagram-Scraping — braucht Stealth-Browser (Patchright/Camoufox) + residential IPs aus Phase 3
+  - SMTP-Mailbox-Existenz-Check (würde echten Mailserver kontaktieren → kein passive_only mehr)
+  - Paid-Provider-Adapter über HIBP hinaus (Hunter, Apollo, Clearbit, DeHashed, LeakCheck) — Phase 2.8
+  - Dark-Web / Tor-Crawler / Stealer-Log-Marketplaces — Phase 2.9 (mit `tor_proxy`-Worker-Provider aus Phase 3)
+  - Bilder-Reverse-Suche (TinEye, Yandex) — Phase 2.9
+  - Phone-Reverse-Lookup paid (Whitepages/BeenVerified) — Phase 2.8
+  - Phishing-Mail-Versand / Pretexting-Toolkit — eigene Phase mit `active_intrusive` + written_consent, frühestens Phase 4
+
+**Phase 2.7+ — OSINT-Engine-Vertiefung** *(parallele Vertiefungs-Roadmap, kanonisch in `features.md`)*
+
+Phase 2.7 hat den Worker-Layer aufgesetzt; der Live-Test 2026-05-08 (geilemukke/orvello/niccaswilliams) hat aber gezeigt, dass die Engine bei vielen Domains 0 Funde produziert, weil ihr Hints-API, WHOIS, Impressum-Crawl, Search-Engine, DE-Spezialquellen, Cross-Domain-Pivots und Speculative-Entities fehlen. Der vollständige Mechanik-Katalog (66 Mechaniken in 8 Sektionen) und die Sprint-Reihenfolge (Sprint 1 Foundation → Sprint 8 Person→Firma→Mehr Domains) leben in `features.md`. ROADMAP.md trackt nur den High-Level-Status:
+
+- **Sprint 1.1 — Hints-API + Schema** *(✅ live 2026-05-08)*: Tabelle `secu_engagement_hints` mit 8-Slot-Enum, CRUD-Endpoints unter `/engagements/:id/hints`, Worker-Konsum-API `hintService.getBundle()`. Migration `0005_complex_weapon_omega.sql`. Audit-Log auf jeder Mutation.
+- **Sprint 1.2-1.6** *(offen)*: Speculative-Entity-Felder + Confidence-Aggregator, Pivot-Budget-Enforcement im playbook-runner, `osint_pivot_light`-Mini-Playbook, Shared-Utils (UA-Rotation HTTP, CF-Email-Decoder, DNS-Verify, Hosting-Klassifikator), `findingCategoryEnum.compliance_imprint`.
+- **Sprint 2+** *(offen)*: Domain→Owner-Worker (WHOIS/RDAP, Impressum mit DDG-§5-Compliance-Audit, DMARC-rua/ruf-Email-Extract, MS-Tenant, HTML-Pivots inkl. Webpack-Chunk-Hash) → Search-Engine + GitHub-Brand-Discovery → DE-Spezial (Handelsregister, Bundesanzeiger, Branchenbuch) → Cross-Domain-Pivot-Aktivierung → Email-Discovery-Vollausbau → Person-Multi-Plattform → Person→Firma→Mehr-Domains.
+
+**Roadmap-Erweiterungen danach:**
+
+- **Phase 2.8 — Paid-OSINT-Aggregator** *(1–2 Wochen, optional, opt-in pro Engagement)*: Adapter für Hunter, Apollo, Clearbit, FullContact, DeHashed, LeakCheck, IPQS. Operator-konfigurierte API-Keys pro Engagement (`engagements.osint_provider_keys` jsonb). Same Auto-Chain-Pattern wie 2.7, neue Provider-Klassen klinken sich ins `BreachProvider`-/`PersonEnrichmentProvider`-Interface ein. Provider-Limiter erweitert um die paid-Provider-Quotas. Cost-Tracking pro Run.
+- **Phase 2.9 — Dark-Web + Stealer-Logs** *(3 Wochen, baut auf Phase 3 Cloud-Worker auf)*: Tor-Worker via existierenden `tor_proxy`-Provider (Schema bereits vorhanden), Ahmia-style Scrapy-Subset für ausgewählte Onion-Indizes, HudsonRock Cavalier free-Tier-Adapter, dehashed-Marketplace-Monitoring. Hard-Authorization: nur `customer_pentest` mit `written_consent` ODER `internal`/`solo_lab`. Dedizierte `dark_web_artifact`-Subkind in `secu_artifacts.kind` mit Verschlüsselung at-rest (Engagement-Schlüssel aus Phase 5).
 
 ---
 

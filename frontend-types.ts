@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T00:04:57.197Z
+// Generated at: 2026-05-08T09:33:00.470Z
 // Run `npm run types:generate` to regenerate this file
 
 // ============================================================================
@@ -21,7 +21,7 @@ export type AuthorizationKind = 'own' | 'verified_ownership' | 'written_consent'
 export type AuthorizationProofType = 'dns_txt' | 'http_file' | 'written_contract' | 'manual_owner_verification' | 'none';
 export type EngagementKind = 'solo_lab' | 'ctf' | 'bug_bounty' | 'customer_pentest' | 'internal';
 export type EngagementStatus = 'planning' | 'active' | 'paused' | 'completed' | 'archived';
-export type EntityKind = 'asset_domain' | 'asset_subdomain' | 'asset_ip' | 'asset_host' | 'asset_url' | 'person' | 'organization' | 'location' | 'credential_ref' | 'document';
+export type EntityKind = 'asset_domain' | 'asset_subdomain' | 'asset_ip' | 'asset_host' | 'asset_url' | 'person' | 'organization' | 'location' | 'credential_ref' | 'document' | 'email_address' | 'username' | 'phone_number' | 'social_account';
 export type EngagementEntityRole = 'primary_target' | 'in_scope' | 'out_of_scope' | 'pivot' | 'context';
 export type FindingStatus = 'open' | 'triaged' | 'confirmed' | 'false_positive' | 'fixed';
 export type FindingCategory = 'dns' | 'email_security' | 'tls' | 'http_headers' | 'exposure' | 'cms' | 'auth' | 'injection' | 'cve' | 'config' | 'deps' | 'cert' | 'phishing' | 'leak';
@@ -29,6 +29,8 @@ export type ArtifactKind = 'screenshot' | 'file' | 'command_output' | 'pcap' | '
 export type PlaybookRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type WorkerRunStatus = 'pending' | 'provisioning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'skipped';
 export type WorkerProvider = 'local' | 'hetzner' | 'aws' | 'digitalocean' | 'docker_host' | 'tor_proxy';
+export type RuleTrigger = 'entity.created' | 'entity.updated' | 'finding.created' | 'playbook_run.completed' | 'schedule';
+export type RuleAction = 'start_playbook' | 'tag_entity' | 'notify_boss' | 'create_finding';
 
 // ============================================================================
 // BASE APP TYPES (schema.ts)
@@ -849,6 +851,67 @@ export type NewSecurityAuditLog = {
   success?: boolean;
   errorMessage?: string | null;
   createdAt?: Date;
+};
+
+export type Rule = {
+  id: number;
+  name: string;
+  description: string | null;
+  scope: string;
+  trigger: RuleTrigger;
+  action: RuleAction;
+  enabled: boolean;
+  createdBy: number | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+  lastFiredAt: Date | null;
+};
+
+export type NewRule = {
+  name: string;
+  description?: string | null;
+  scope?: string;
+  trigger: RuleTrigger;
+  action: RuleAction;
+  enabled?: boolean;
+  createdBy?: number | null;
+  createdAt?: Date;
+  updatedAt?: Date | null;
+  lastFiredAt?: Date | null;
+};
+
+export type OsintProviderState = {
+  id: number;
+  providerKey: string;
+  windowStart: Date;
+  lastRequestAt: Date | null;
+  last429At: Date | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type NewOsintProviderState = {
+  providerKey: string;
+  windowStart?: Date;
+  lastRequestAt?: Date | null;
+  last429At?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date | null;
+};
+
+export type SignalChainLog = {
+  id: number;
+  engagementId: number;
+  rootEntityId: number | null;
+  startedAt: Date;
+  finishedAt: Date | null;
+};
+
+export type NewSignalChainLog = {
+  engagementId: number;
+  rootEntityId?: number | null;
+  startedAt?: Date;
+  finishedAt?: Date | null;
 };
 
 export type EngagementGraph = {

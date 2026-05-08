@@ -53,6 +53,13 @@ class PlaybookController {
                 triggeredBy: body.triggeredBy ?? "manual",
                 params: body.params,
             });
+            // Sprint 1.3 — Hop-Budget-Block ist aktuell nur für Auto-Chains
+            // relevant (parentRunId nötig). Manuelle HTTP-Aufrufe bekommen ihn
+            // nicht — der explizite Type-Guard hier ist defensive Vorkehrung
+            // (falls späterer Caller doch parentRunId mitgibt).
+            if ("blocked" in out) {
+                return responseHandler(res, 429, `playbook_blocked:${out.reason}`, out);
+            }
             return responseHandler(res, 202, undefined, out);
         } catch (e: any) {
             if (e instanceof PlaybookRunnerError) {

@@ -79,8 +79,10 @@ export function responseHandler(
     message?: unknown,
     data?: any
 ) {
-    const successStatusCodes = [200, 201, 204]
-    const success = successStatusCodes.includes(statusCode)
+    // Alle 2xx-Codes sind Erfolge. Speziell 202 (Accepted) wird vom
+    // async-Playbook-Start verwendet — wenn wir das nicht als success markieren,
+    // sieht der Client `success:false` obwohl der Run sauber gestartet wurde.
+    const success = statusCode >= 200 && statusCode < 300
 
     const normalizeMessage = (input: unknown): string | undefined => {
         if (input == null) return undefined

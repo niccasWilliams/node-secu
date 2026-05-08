@@ -18,6 +18,12 @@
 //   - playbook_runs              — DAG-Run im Engagement-Kontext
 //   - worker_runs                — einzelner Tool-Run, Cloud-/Local-provisioniert
 //   - secu_audit_log             — bekommt FK engagement_id
+//
+// Phase 2.7 (OSINT-Identity-Layer, 2026-05-08): Identity-Graph + Provider-State.
+//   - entityKindEnum erweitert   — email_address, username, phone_number, social_account
+//   - engagements.osint_budget_per_hour
+//   - secu_osint_provider_state  — Rate-Limit-Bookkeeping persistent
+//   - secu_signal_chain_log      — Auditierbare OSINT-Chain-Spuren
 
 import {
     boolean,
@@ -95,6 +101,37 @@ export const entityKindEnum = pgEnum("secu_entity_kind", [
     "location",
     "credential_ref",
     "document",
+    // Phase 2.7 — OSINT-Identity-Layer.
+    // First-class identity nodes: dieselbe Email/Username/Phone/Social kann zu
+    // mehreren Personen gehören → Cross-Person-Korrelationen werden im Graph
+    // automatisch sichtbar.
+    "email_address",
+    "username",
+    "phone_number",
+    "social_account",
+    // Sprint 1.7 (OSINT-Engine, features.md §2.8) — Infrastructure-Provider.
+    // Treffer wie Cloudflare-NS, Railway-IP, Google-Analytics-Snippet werden NICHT
+    // als Owner-Domain/Person interpretiert, sondern als context-Entity dieses
+    // Kinds persistiert. Worker rufen `infrastructureProviderService.classifyAndPersistIfInfra()`
+    // VOR jedem Cross-Domain/Owner-Pivot.
+    "infrastructure_provider",
+]);
+
+/**
+ * Sprint 1.7 (OSINT-Engine, features.md §2.8) — Infrastructure-Provider-Kategorien.
+ *
+ * Sieben harte Klassen, weil Worker je Kategorie unterschiedlich entscheiden
+ * (analytics-Treffer kann ein Cross-Domain-Pivot trotzdem unterdrücken,
+ * email_provider darf nicht als Owner-Email klassifiziert werden, ...).
+ */
+export const infrastructureProviderCategoryEnum = pgEnum("secu_infra_provider_category", [
+    "dns_provider",
+    "registrar",
+    "hosting",
+    "cdn",
+    "email_provider",
+    "analytics",
+    "social_platform",
 ]);
 
 export const engagementEntityRoleEnum = pgEnum("secu_engagement_entity_role", [
@@ -128,6 +165,12 @@ export const findingCategoryEnum = pgEnum("secu_finding_category", [
     "cert",
     "phishing",
     "leak",
+    // Sprint 1.6 (OSINT-Engine, features.md L11 / Mechanik #11d) — DDG/TMG §5
+    // Pflichtfelder im Impressum (Name, Anschrift, Kontakt-Email, Telefon,
+    // ggf. HRB/USt-IdNr). `domain_impressum_extract` erzeugt Findings dieser
+    // Kategorie wenn Pflichtangaben fehlen oder das Impressum gar nicht erreichbar
+    // ist. Default-Severity: missing-imprint = medium, missing-fields = low.
+    "compliance_imprint",
 ]);
 
 export const artifactKindEnum = pgEnum("secu_artifact_kind", [
@@ -165,6 +208,104 @@ export const workerProviderEnum = pgEnum("secu_worker_provider", [
     "docker_host",
     "tor_proxy",
 ]);
+
+/**
+ * Phase 2.5 — Rule-Engine.
+ *
+ * Trigger-Events, auf die Rules abonniert werden können. `schedule` ist als
+ * Platzhalter eingeplant (Phase 2.5+ kann cron-basiertes Feuern hinzufügen),
+ * wird aktuell vom Evaluator ignoriert.
+ */
+export const ruleTriggerEnum = pgEnum("secu_rule_trigger", [
+    "entity.created",
+    "entity.updated",
+    "finding.created",
+    "playbook_run.completed",
+    "schedule",
+]);
+
+/**
+ * Action-Typen, die eine Rule auslösen kann. Jede Action hat ein eigenes
+ * `params`-Schema (im JSON-Body validiert):
+ *   - start_playbook  → { playbookKey, rootEntityIdFrom?, paramsTemplate? }
+ *   - tag_entity      → { tag, color?, entityIdFrom? }
+ *   - notify_boss     → { channel?, severityFloor?, message? }
+ *   - create_finding  → { severity, category, title, descriptionTemplate, recommendation? }
+ */
+export const ruleActionEnum = pgEnum("secu_rule_action", [
+    "start_playbook",
+    "tag_entity",
+    "notify_boss",
+    "create_finding",
+]);
+
+/**
+ * Sprint 1 (OSINT-Engine, features.md §2.1) — Operator-Hints pro Engagement.
+ *
+ * Pro Slot eine Zeile, damit jeder Hint einzeln referenzierbar ist:
+ *   - Worker-Evidence kann `hintRefs: [12, 17]` zurücktragen (siehe §2.2 + §2.7).
+ *   - PATCH/DELETE per `hintId` aus features.md greift direkt.
+ *   - Audit-Log dokumentiert pro Hint-Mutation Verantwortlichen + Zeitpunkt.
+ *
+ * `free_text` ist absichtlich Slot statt eigene Spalte — bleibt das Modell uniform
+ * und Mehrfach-Notizen (z.B. zwei verschiedene Customer-Mails) sind separat editierbar.
+ */
+export const engagementHintSlotEnum = pgEnum("secu_engagement_hint_slot", [
+    "owner_name",
+    "owner_city",
+    "owner_company",
+    "owner_known_email",
+    "owner_known_username",
+    "owner_alt_domain",
+    "industry",
+    "free_text",
+]);
+
+// ============================================================================
+// SPRINT 1.7 — INFRASTRUCTURE-PROVIDER REGISTRY (features.md §2.8)
+// ============================================================================
+//
+// Globale Lookup-Tabelle für bekannte Hosting-/DNS-/CDN-/Email-/Analytics-/
+// Social-Provider. Jeder OSINT-Worker, der Domain-/Host-/IP-/NS-/Asset-Hits
+// produziert, ruft VOR der Owner-Pivot-Logik den infrastructureProviderService
+// — Treffer landen als entity.kind='infrastructure_provider' und feedback in
+// die Cross-Domain-Heuristik gesperrt (siehe features.md §2.8 Begründung).
+//
+// `matchPatterns` ist bewusst jsonb statt N normalisierter Spalten, damit
+// neue Match-Achsen (z.B. "asn_org_substring", "tls_san_pattern") ohne
+// Migration ergänzbar sind.
+export interface InfraProviderMatchPatterns {
+    /** Suffixes für Hostnames/Domains, lowercased ohne führenden Punkt — Match wenn host endet auf .<suffix> oder ==<suffix>. */
+    domainSuffixes?: string[];
+    /** ASN-Nummern dieses Providers, z.B. [13335] für Cloudflare. */
+    asnNumbers?: number[];
+    /** IPv4-CIDR-Ranges in dotted/prefix-Notation, z.B. ["104.16.0.0/12"]. */
+    cidrRanges?: string[];
+    /** Suffix-Patterns für Nameserver-Hostnames, z.B. [".ns.cloudflare.com"]. */
+    nsSuffixes?: string[];
+    /** Hosts, von denen HTML-Tracking-Snippets/Asset-Bundles ausgeliefert werden, z.B. "www.googletagmanager.com". */
+    htmlAssetHosts?: string[];
+    /** Mail-Provider-Hostnames (MX-Targets, SPF-Includes), z.B. "aspmx.l.google.com". */
+    emailDomains?: string[];
+}
+
+export const infrastructureProviders = pgTable("secu_infrastructure_providers", {
+    id: serial("id").primaryKey(),
+    /** Stable canonical key, z.B. "cloudflare-dns", "railway", "google-analytics". Operator-anlegbar. */
+    key: varchar("key", { length: 64 }).notNull(),
+    name: varchar("name", { length: 128 }).notNull(),
+    category: infrastructureProviderCategoryEnum("category").notNull(),
+    matchPatterns: jsonb("match_patterns").$type<InfraProviderMatchPatterns>().notNull().default({}),
+    /** Kontext für Operator-Diagnose (Quelle, Stand, Begründung). */
+    dataNotes: text("data_notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+}, (t) => ({
+    keyUnique: unique("secu_infra_providers_key_unique").on(t.key),
+    categoryIdx: index("secu_infra_providers_category_idx").on(t.category),
+    activeIdx: index("secu_infra_providers_active_idx").on(t.isActive),
+}));
 
 // ============================================================================
 // GLOBAL IDENTITY LAYER — entities, relationships, tags
@@ -262,6 +403,16 @@ export const engagements = pgTable("secu_engagements", {
     status: engagementStatusEnum("status").notNull().default("active"),
     ownerUserId: integer("owner_user_id").references(() => users.id, { onDelete: "set null" }),
     scopeSummary: text("scope_summary"),
+    /** Phase 2.7 — Hard-Limit für OSINT-Requests pro Stunde, geprüft vom engagement-budget.service. */
+    osintBudgetPerHour: integer("osint_budget_per_hour").notNull().default(1000),
+    /**
+     * Sprint 1.3 (OSINT-Engine, features.md §2.4) — Auto-Chain-Hop-Limit.
+     * Default = 2 (Hop 0 = Engagement-Root, Hop 1 = direkte Owner-Discovery,
+     * Hop 2 = Person→Firma→deren-Domains; Hop 3+ wird nicht mehr auto-chained).
+     * Operator kann pro Engagement override setzen (z.B. 3 für deep-OSINT-
+     * Vertiefung oder 1 für sehr enge Engagements).
+     */
+    osintMaxHops: integer("osint_max_hops").notNull().default(2),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
     archivedAt: timestamp("archived_at"),
@@ -283,6 +434,36 @@ export const engagementEntities = pgTable("secu_engagement_entities", {
     engagementIdx: index("secu_eng_ent_engagement_idx").on(t.engagementId),
     entityIdx: index("secu_eng_ent_entity_idx").on(t.entityId),
     pairUnique: unique("secu_eng_ent_pair_unique").on(t.engagementId, t.entityId),
+}));
+
+/**
+ * Sprint 1 (OSINT-Engine, features.md §2.1) — Hints pro Engagement.
+ *
+ * Worker konsumieren Hints via `hintService.getHints(engagementId)` als Seed-Material
+ * (siehe `[hint-aware]`-Tag im Mechanik-Katalog). Jede Zeile = ein Hint-Wert für
+ * genau einen Slot. Ein Engagement kann beliebig viele Hints derselben Slot-Sorte
+ * haben (z.B. drei `owner_name`-Einträge wenn mehrere Personen vermutet werden).
+ *
+ * `value` ist generischer Text (Namen, Städte, Firmen, Emails, Usernames, Domains,
+ * Branchen, freiform Notiz) — die Slot-Semantik macht der Konsument-Worker.
+ * `source` ist optional und enthält die Herkunft des Hints im Klartext, z.B.
+ *   "customer_meeting_2026-04-12" | "operator_intuition" | "prior_engagement".
+ */
+export const engagementHints = pgTable("secu_engagement_hints", {
+    id: serial("id").primaryKey(),
+    engagementId: integer("engagement_id")
+        .notNull()
+        .references(() => engagements.id, { onDelete: "cascade" }),
+    slot: engagementHintSlotEnum("slot").notNull(),
+    value: text("value").notNull(),
+    source: varchar("source", { length: 64 }),
+    notes: text("notes"),
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+}, (t) => ({
+    engagementIdx: index("secu_engagement_hints_engagement_idx").on(t.engagementId),
+    engagementSlotIdx: index("secu_engagement_hints_engagement_slot_idx").on(t.engagementId, t.slot),
 }));
 
 /**
@@ -399,10 +580,19 @@ export const playbookRuns = pgTable("secu_playbook_runs", {
     startedAt: timestamp("started_at"),
     finishedAt: timestamp("finished_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    /**
+     * Sprint 1.3 (OSINT-Engine, features.md §2.4) — Hop-Depth-Tracking.
+     * Manuelle Runs = 0. Rule-getriggerte Folge-Runs = parent.hopDepth + 1.
+     * Auto-Chain blockt bei `hopDepth > engagements.osintMaxHops` (default 2).
+     */
+    hopDepth: integer("hop_depth").notNull().default(0),
+    /** Parent-Run, der diesen Run via Auto-Chain ausgelöst hat. NULL = manuell oder Schedule. */
+    parentRunId: integer("parent_run_id"),
 }, (t) => ({
     engagementIdx: index("secu_playbook_runs_engagement_idx").on(t.engagementId),
     statusIdx: index("secu_playbook_runs_status_idx").on(t.status),
     keyIdx: index("secu_playbook_runs_key_idx").on(t.playbookKey),
+    parentIdx: index("secu_playbook_runs_parent_idx").on(t.parentRunId),
 }));
 
 export const workerRuns = pgTable("secu_worker_runs", {
@@ -428,6 +618,160 @@ export const workerRuns = pgTable("secu_worker_runs", {
     entityIdx: index("secu_worker_runs_entity_idx").on(t.entityId),
     keyIdx: index("secu_worker_runs_key_idx").on(t.workerKey),
     statusIdx: index("secu_worker_runs_status_idx").on(t.status),
+}));
+
+// ============================================================================
+// RULES — Phase 2.5 deklarative Rule-Engine
+// ============================================================================
+//
+// `scope` ist ein freitext-Pattern, weil wir ohne migrationspflichtige Enums
+// drei Lanes unterstützen wollen:
+//   - "global"                    → feuert in allen Engagements
+//   - "engagement_kind:<kind>"    → nur Engagements dieser Art (z.B. solo_lab)
+//   - "engagement:<id>"           → nur dieses eine Engagement
+//
+// `condition` ist eine JSON-Logic-Struktur (https://jsonlogic.com), die der
+// Rule-Evaluator gegen den Event-Payload prüft. Bewusst KEIN eval / Function-
+// Constructor — die Maschine ist deklarativ und auditierbar.
+
+export const rules = pgTable("secu_rules", {
+    id: serial("id").primaryKey(),
+
+    name: varchar("name", { length: 128 }).notNull(),
+    description: text("description"),
+
+    scope: varchar("scope", { length: 64 }).notNull().default("global"),
+    trigger: ruleTriggerEnum("trigger").notNull(),
+    action: ruleActionEnum("action").notNull(),
+
+    /** JSON-Logic-Struktur — Bool-Ergebnis gegen Event-Payload. `null` = immer wahr. */
+    condition: jsonb("condition").$type<Record<string, unknown> | null>(),
+    /** Action-spezifische Parameter (z.B. {playbookKey:"web_recon_passive"}). */
+    actionParams: jsonb("action_params").$type<Record<string, unknown>>().notNull().default({}),
+
+    enabled: boolean("enabled").notNull().default(true),
+
+    createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+
+    /** Telemetrie: wie oft hat diese Rule gefeuert, wann zuletzt. */
+    fireCount: integer("fire_count").notNull().default(0),
+    lastFiredAt: timestamp("last_fired_at"),
+}, (t) => ({
+    triggerIdx: index("secu_rules_trigger_idx").on(t.trigger),
+    enabledIdx: index("secu_rules_enabled_idx").on(t.enabled),
+    scopeIdx: index("secu_rules_scope_idx").on(t.scope),
+}));
+
+// ============================================================================
+// SPRINT 2 #7 (OSINT-Engine, features.md §3.1 Mechanik #10 + #11a) — DNS-Pivot-Tabellen
+// ============================================================================
+//
+// Die DNS-Records-Worker-Erweiterung schreibt Cross-Domain-Indikatoren aus
+// DNS-TXT (Owner-Verifications) und NS (Cloudflare-NS-Pair) in zwei dedizierte
+// Pivot-Tabellen. Sprint 5 (`cross_domain_pivot_lookup`-Worker) liest sie
+// zurück, um automatisch alle Engagements zu finden, die denselben Pivot teilen.
+//
+// Schema-Convention identisch zu späteren `secu_html_pivots` (Sprint 2 #11) —
+// alle Pivot-Tabellen folgen dem Muster (engagement, entity, idType, idValue,
+// source, foundAt) damit die Cross-Pivot-Engine generisch über alle Pivot-
+// Klassen joinen kann.
+
+/**
+ * Bekannte DNS-TXT-Verification-Token-Typen werden als Slug-String in `idType`
+ * persistiert. Convention-Liste: google_site_verification | ms365 | atlassian |
+ * apple_domain | facebook_domain | github_domain | adobe_idp | docusign |
+ * stripe | zoom | webex | other. KEIN pgEnum, weil neue Provider laufend
+ * dazukommen — Worker fällt bei unbekannten Mustern auf "other" zurück.
+ */
+export const dnsVerificationPivots = pgTable("secu_dns_verification_pivots", {
+    id: serial("id").primaryKey(),
+    engagementId: integer("engagement_id")
+        .notNull()
+        .references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id")
+        .notNull()
+        .references(() => entities.id, { onDelete: "cascade" }),
+    idType: varchar("id_type", { length: 64 }).notNull(),
+    /** Roher Token-Wert wie im DNS, ohne Provider-Präfix; case-preserved (Token sind case-sensitive). */
+    idValue: varchar("id_value", { length: 256 }).notNull(),
+    /** Z.B. "TXT@example.com" — für Operator-Diagnose. */
+    source: varchar("source", { length: 128 }).notNull(),
+    foundAt: timestamp("found_at").notNull().defaultNow(),
+}, (t) => ({
+    engagementIdx: index("secu_dns_verification_pivots_engagement_idx").on(t.engagementId),
+    entityIdx: index("secu_dns_verification_pivots_entity_idx").on(t.entityId),
+    /** Cross-Engagement-Lookup-Index — DER Hot-Path für Sprint 5. */
+    typeValueIdx: index("secu_dns_verification_pivots_type_value_idx").on(t.idType, t.idValue),
+    /** Idempotenter Insert pro (Entity, Token-Type, Token-Value) — Worker-Re-Runs deduplizieren automatisch. */
+    entityTypeValueUnique: unique("secu_dns_verification_pivots_entity_type_value_unique").on(t.entityId, t.idType, t.idValue),
+}));
+
+/**
+ * Sprint 2 #11 (features.md §3.2 Mechanik #12-#16c) — HTML-Pivot-Tabelle für
+ * Tracking-IDs, Build-Asset-Hashes und Custom-App-Identifier, die domain-
+ * übergreifend dieselbe Codebase identifizieren. Gleiche Schema-Convention
+ * wie die DNS-Pivot-Tabellen.
+ *
+ * idType-Convention (extensible, kein pgEnum):
+ *   - google_analytics_ua | google_analytics_ga4 | google_tag_manager
+ *   - facebook_pixel | hotjar | matomo | yandex_metrika | ms_clarity
+ *   - sentry_dsn | stripe_publishable_key | mapbox_token | mailchimp_list_id
+ *   - recaptcha_site_key | plausible_domain
+ *   - webpack_chunk_hash | next_chunk_hash | vite_asset_hash | sveltekit_chunk_hash
+ *
+ * Webpack/Next-Chunk-Hashes sind die STÄRKSTEN Cross-Domain-Signale (Live-Test
+ * fand 8 gemeinsame Chunks zwischen orvello und niccaswilliams = quasi sicher
+ * dieselbe Codebase). Tracking-IDs sind kopierbar (jemand könnte fremde GTM-ID
+ * auf eigener Seite einbauen) — Build-Hashes nicht, das wäre Compile-Match.
+ */
+export const htmlPivots = pgTable("secu_html_pivots", {
+    id: serial("id").primaryKey(),
+    engagementId: integer("engagement_id")
+        .notNull()
+        .references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id")
+        .notNull()
+        .references(() => entities.id, { onDelete: "cascade" }),
+    idType: varchar("id_type", { length: 64 }).notNull(),
+    idValue: varchar("id_value", { length: 256 }).notNull(),
+    /** URL, in der der Pivot gefunden wurde — Operator-Diagnose. */
+    sourceUrl: varchar("source_url", { length: 512 }).notNull(),
+    foundAt: timestamp("found_at").notNull().defaultNow(),
+}, (t) => ({
+    engagementIdx: index("secu_html_pivots_engagement_idx").on(t.engagementId),
+    entityIdx: index("secu_html_pivots_entity_idx").on(t.entityId),
+    typeValueIdx: index("secu_html_pivots_type_value_idx").on(t.idType, t.idValue),
+    entityTypeValueUnique: unique("secu_html_pivots_entity_type_value_unique").on(t.entityId, t.idType, t.idValue),
+}));
+
+/**
+ * NS-Pair-Pivot-Tabelle — primär für Cloudflare-NS-Pair (zwei NS-Records
+ * derselben Form `*.ns.cloudflare.com`, der lexikografisch sortierte
+ * Pair-String identifiziert eindeutig einen CF-Account). Andere DNS-Provider
+ * vergeben i.d.R. shared NS — dort kommt `idType='shared_ns'` rein, und der
+ * Sprint-5-Pivot-Worker filtert die als nicht-pivottauglich raus (siehe §2.8).
+ */
+export const dnsNsPivots = pgTable("secu_dns_ns_pivots", {
+    id: serial("id").primaryKey(),
+    engagementId: integer("engagement_id")
+        .notNull()
+        .references(() => engagements.id, { onDelete: "cascade" }),
+    entityId: integer("entity_id")
+        .notNull()
+        .references(() => entities.id, { onDelete: "cascade" }),
+    /** `cloudflare_ns_pair` für CF-spezifische Pair-Eindeutigkeit; `shared_ns` für gewöhnliche Provider-NS. */
+    idType: varchar("id_type", { length: 64 }).notNull(),
+    /** Sortiertes Pair (z.B. "leonidas.ns.cloudflare.com|teagan.ns.cloudflare.com") oder Single-NS-Host. */
+    idValue: varchar("id_value", { length: 512 }).notNull(),
+    source: varchar("source", { length: 128 }).notNull(),
+    foundAt: timestamp("found_at").notNull().defaultNow(),
+}, (t) => ({
+    engagementIdx: index("secu_dns_ns_pivots_engagement_idx").on(t.engagementId),
+    entityIdx: index("secu_dns_ns_pivots_entity_idx").on(t.entityId),
+    typeValueIdx: index("secu_dns_ns_pivots_type_value_idx").on(t.idType, t.idValue),
+    entityTypeValueUnique: unique("secu_dns_ns_pivots_entity_type_value_unique").on(t.entityId, t.idType, t.idValue),
 }));
 
 // ============================================================================
@@ -467,6 +811,57 @@ export const securityAuditLog = pgTable("secu_audit_log", {
 }));
 
 // ============================================================================
+// Phase 2.7 — OSINT Provider State + Signal Chain Log
+// ============================================================================
+
+/**
+ * Provider-Rate-Limit-Bookkeeping. Pro `provider_key` (z.B. "gravatar", "github",
+ * "crt.sh", "hibp", "holehe-adobe") wird Counter + 429-Backoff persistent gehalten
+ * — überlebt App-Restarts, sodass Provider-Quotas nicht durch Re-Starts geleakt
+ * werden.
+ */
+export const secuOsintProviderState = pgTable("secu_osint_provider_state", {
+    id: serial("id").primaryKey(),
+    providerKey: varchar("provider_key", { length: 64 }).notNull(),
+    /** Sliding-Window-Counter — wird vom limiter rotiert wenn windowStart älter als die Window-Dauer ist. */
+    requestCount: integer("request_count").notNull().default(0),
+    windowStart: timestamp("window_start").notNull().defaultNow(),
+    lastRequestAt: timestamp("last_request_at"),
+    last429At: timestamp("last_429_at"),
+    /** Wenn gesetzt und in Zukunft → Worker skippen mit error="provider_paused:..." */
+    pausedUntil: timestamp("paused_until"),
+    /** Kontext für die letzte 429/Fehler-Meldung — Operator-Diagnose. */
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at"),
+}, (t) => ({
+    providerKeyUnique: unique("secu_osint_provider_state_key_unique").on(t.providerKey),
+}));
+
+/**
+ * Auditierbare OSINT-Chain-Spur. Phase 2.7 schreibt pro chained Run einen Eintrag
+ * — "aus Email X via gravatar+github+holehe haben wir N Signale gefunden". Phase 6
+ * Reporting kann darauf direkt eine "Signal-Map"-Visualisierung bauen.
+ */
+export const secuSignalChainLog = pgTable("secu_signal_chain_log", {
+    id: serial("id").primaryKey(),
+    engagementId: integer("engagement_id").notNull().references(() => engagements.id, { onDelete: "cascade" }),
+    rootEntityId: integer("root_entity_id").references(() => entities.id, { onDelete: "set null" }),
+    /** Trigger der Chain — manuell, rule-id oder playbook-key. */
+    triggeredBy: varchar("triggered_by", { length: 64 }).notNull().default("manual"),
+    /**
+     * jsonb-Array: [{ step, provider, foundEntityIds[], findingIds[], ms, status }]
+     * — pro Step ein Eintrag in chronologischer Reihenfolge.
+     */
+    signalChain: jsonb("signal_chain").$type<Array<Record<string, unknown>>>().notNull().default([]),
+    startedAt: timestamp("started_at").notNull().defaultNow(),
+    finishedAt: timestamp("finished_at"),
+}, (t) => ({
+    engagementIdx: index("secu_signal_chain_engagement_idx").on(t.engagementId),
+    rootIdx: index("secu_signal_chain_root_idx").on(t.rootEntityId),
+}));
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 
@@ -499,6 +894,10 @@ export type EngagementEntity = typeof engagementEntities.$inferSelect;
 export type NewEngagementEntity = typeof engagementEntities.$inferInsert;
 export type EngagementEntityRole = (typeof engagementEntityRoleEnum.enumValues)[number];
 
+export type EngagementHint = typeof engagementHints.$inferSelect;
+export type NewEngagementHint = typeof engagementHints.$inferInsert;
+export type EngagementHintSlot = (typeof engagementHintSlotEnum.enumValues)[number];
+
 export type EntityAuthorization = typeof entityAuthorizations.$inferSelect;
 export type NewEntityAuthorization = typeof entityAuthorizations.$inferInsert;
 export type AuthorizationKind = (typeof authorizationKindEnum.enumValues)[number];
@@ -529,6 +928,141 @@ export type WorkerProvider = (typeof workerProviderEnum.enumValues)[number];
 
 export type SecurityAuditLog = typeof securityAuditLog.$inferSelect;
 export type NewSecurityAuditLog = typeof securityAuditLog.$inferInsert;
+
+export type Rule = typeof rules.$inferSelect;
+export type NewRule = typeof rules.$inferInsert;
+export type RuleTrigger = (typeof ruleTriggerEnum.enumValues)[number];
+export type RuleAction = (typeof ruleActionEnum.enumValues)[number];
+
+export type OsintProviderState = typeof secuOsintProviderState.$inferSelect;
+export type NewOsintProviderState = typeof secuOsintProviderState.$inferInsert;
+
+export type SignalChainLog = typeof secuSignalChainLog.$inferSelect;
+export type NewSignalChainLog = typeof secuSignalChainLog.$inferInsert;
+
+export type InfrastructureProvider = typeof infrastructureProviders.$inferSelect;
+export type NewInfrastructureProvider = typeof infrastructureProviders.$inferInsert;
+export type InfrastructureProviderCategory = (typeof infrastructureProviderCategoryEnum.enumValues)[number];
+
+export type DnsVerificationPivot = typeof dnsVerificationPivots.$inferSelect;
+export type NewDnsVerificationPivot = typeof dnsVerificationPivots.$inferInsert;
+export type DnsNsPivot = typeof dnsNsPivots.$inferSelect;
+export type NewDnsNsPivot = typeof dnsNsPivots.$inferInsert;
+export type HtmlPivot = typeof htmlPivots.$inferSelect;
+export type NewHtmlPivot = typeof htmlPivots.$inferInsert;
+
+// ============================================================================
+// Sprint 1.2 (OSINT-Engine, features.md §2.2 + §2.7) — Speculative-Entities
+// + Confidence-Score + Provenance-Class.
+// ============================================================================
+//
+// Optionaler Provenance-Block in `entities.data.provenance`. Wird vom
+// `confidenceService.aggregate()` (src/lib/security/entities/confidence.ts)
+// gepflegt. Worker liefern Evidence-Items über
+// `DiscoveredEntityDraft.evidence[]` — der playbook-runner mergt sie via
+// confidenceService in die Entity, recomputed Confidence + Speculative-Flag.
+//
+// Default für Entities OHNE Provenance-Block = factual (worker-aufgeführte
+// Discoveries wie "DNS-A-Resolution" tragen kein Provenance — sie sind
+// reine Fakten). Der Block taucht erst auf, sobald ein Worker explizit
+// Belege mitliefert (Owner-Discovery, Cross-Domain-Pivot, OSINT-Hypothese).
+
+export type EntityEvidenceClass = "organic" | "hint_seeded";
+
+export interface EntityEvidenceItem {
+    /**
+     * Free-text Quellen-Identifier — Konvention: `<worker>:<sub-source>` wenn
+     * sinnvoll (z.B. `domain_impressum_extract:html_body`, `domain_whois_passive:rdap`,
+     * `search_engine_recon:searxng`, `hint:owner_name`).
+     */
+    source: string;
+    /** workerKey aus worker.types — für Re-Scan-Audit (welcher Worker hat den Beleg geliefert). */
+    workerKey?: string;
+    /** secu_worker_runs.id falls bekannt. */
+    workerRunId?: number;
+    foundAt: string;
+    /** Wörtliches Zitat oder kurze Tatsachen-Aussage ("Pilz, Niclas — Geschäftsführer"). */
+    snippet?: string;
+    /** 0.0..1.0 — wie stark dieser eine Beleg alleine die Confidence anhebt. */
+    confidenceContribution: number;
+    evidenceClass: EntityEvidenceClass;
+    /** Nur wenn evidenceClass='hint_seeded': IDs der genutzten secu_engagement_hints. */
+    hintRefs?: number[];
+}
+
+export interface EntityConflict {
+    source: string;
+    claim: string;
+    observedAt: string;
+}
+
+export interface EntityProvenance {
+    /** false = verifiziert/faktisch, true = Hypothese (siehe §2.2/§2.5). */
+    speculative: boolean;
+    /** Aggregierter Vertrauens-Score 0.0..1.0 (computed by confidence.ts). */
+    confidence: number;
+    /** Chronologisch geordnete Liste aller Belege. */
+    evidence: EntityEvidenceItem[];
+    /** Quellen-Widersprüche — kein Auto-Merge, Operator entscheidet. */
+    conflicts: EntityConflict[];
+    /** ISO8601 — letzter Aggregator-Lauf, für Diagnose/Debug. */
+    recomputedAt: string;
+}
+
+/** entity.data-Shape für entity.kind='infrastructure_provider'. */
+export interface InfrastructureProviderEntityData {
+    providerId: number;
+    providerKey: string;
+    providerName: string;
+    category: InfrastructureProviderCategory;
+    matchedVia: "domain" | "asn" | "cidr" | "ns_host" | "html_asset_host" | "email_domain";
+    /** Was hat gematched, z.B. "cloudflare.com" oder "104.16.0.0/12". */
+    matchPattern: string;
+    /** Wer/wo wurde der Treffer beobachtet, z.B. "dns_records:NS=leonidas.ns.cloudflare.com" für Operator-Diagnose. */
+    matchSource?: string;
+    /** Wann zuletzt von einem Worker als infra-Treffer beobachtet — kein autoChain-Trigger. */
+    lastObservedAt?: string;
+}
+
+/** Per-Kind data-Shape für entities.data. Wird in TS getypt, in DB als jsonb persistiert. */
+export interface EmailAddressEntityData {
+    local: string;
+    domain: string;
+    mxValid?: boolean | null;
+    mxHosts?: string[];
+    spfRecord?: string | null;
+    dmarcPolicy?: string | null;
+    dkimSelectorsFound?: string[];
+    gravatarHash?: string;
+    gravatarFound?: boolean;
+    gravatarProfileUrl?: string | null;
+    pwnedSources?: string[];
+    lastValidatedAt?: string | null;
+}
+
+export interface UsernameEntityData {
+    value: string;
+    normalized: string;
+    observedPlatforms?: string[];
+}
+
+export interface PhoneNumberEntityData {
+    e164: string;
+    region?: string | null;
+    type?: "mobile" | "landline" | "voip" | "unknown";
+    carrier?: string | null;
+}
+
+export interface SocialAccountEntityData {
+    platform: string;
+    handle: string;
+    profileUrl: string;
+    verified?: boolean;
+    lastSeenAt?: string;
+    displayName?: string | null;
+    bio?: string | null;
+    followerCount?: number | null;
+}
 
 // ============================================================================
 // Hilfs-Shapes für API-Responses (engagement-graph etc.)

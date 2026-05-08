@@ -6,6 +6,7 @@ import { contract, validate } from "@/api-contract/contract.middleware";
 import { entityController } from "./entity.controller";
 import {
     entityCreateBodySchema,
+    entityEnrichFullBodySchema,
     entityListQuerySchema,
     entityParamsSchema,
     entityRelationshipBodySchema,
@@ -93,6 +94,20 @@ c.post(
         responses: [{ kind: "json", status: 201, data: z.any() }],
     }),
     entityController.addTag.bind(entityController),
+);
+
+// Phase 2.7 — manueller OSINT-Full-Enrichment-Trigger.
+c.post(
+    "/:id/enrich/full",
+    validate({ params: entityParamsSchema, body: entityEnrichFullBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_entity_enrich_full",
+        summary: "Phase 2.7 — Trigger osint_person_full: load linked identities, run their playbooks, persist signal_chain_log",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: entityParamsSchema, body: entityEnrichFullBodySchema, bodyContentType: "application/json" },
+        responses: [{ kind: "json", status: 202, data: z.any() }],
+    }),
+    entityController.enrichFull.bind(entityController),
 );
 
 export default router;

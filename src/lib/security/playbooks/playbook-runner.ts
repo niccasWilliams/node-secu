@@ -28,19 +28,12 @@ import {
     type WorkerRun,
 } from "@/db/individual/individual-schema";
 
-import { authorizationService } from "../authorization/authorization.service";
 import { auditLogService } from "../audit/audit-log.service";
 import { entityService } from "../entities/entity.service";
-import { relationshipService } from "../entities/relationship.service";
-import { findingService } from "../findings/finding.service";
+import { secuEventBus } from "../rules/event-bus";
 import { techFingerprintService, type PersistedTechFingerprint } from "../tech/tech-fingerprint.service";
+import { executeWorker } from "../workers/worker-runner";
 import { getWorker } from "../workers/worker-registry";
-import type {
-    DiscoveredEntityDraft,
-    SecurityWorker,
-    WorkerContext,
-    WorkerResult,
-} from "../workers/worker.types";
 
 import { getPlaybook } from "./playbook-registry";
 import type {
@@ -58,6 +51,13 @@ export type StartRunInput = {
     triggeredByUserId?: number | null;
     triggeredBy?: string;
     params?: Record<string, unknown>;
+    /**
+     * Sprint 1.3 (features.md §2.4) — Parent-Run für Auto-Chain-Hop-Tracking.
+     * Manuelle Runs lassen das undefined → hopDepth=0. Rule-getriggerte Runs
+     * setzen es auf den auslösenden Run; der Runner enforced danach das
+     * Hop-Limit aus engagements.osintMaxHops und blockt ggf. mit Audit-Log.
+     */
+    parentRunId?: number | null;
 };
 
 export type StartRunResult = {
@@ -65,6 +65,15 @@ export type StartRunResult = {
     status: PlaybookRunStatus;
     playbook: { key: string; label: string };
 };
+
+/** Sprint 1.3 — Outcome wenn ein Run wegen Hop-Budget nicht startet. */
+export interface BudgetBlockedResult {
+    blocked: true;
+    reason: "hop_budget_exceeded";
+    hopDepthRequested: number;
+    hopDepthLimit: number;
+    parentRunId: number;
+}
 
 export type RunStatusReport = {
     run: typeof playbookRuns.$inferSelect;
@@ -79,10 +88,12 @@ interface PlaybookRunSummary {
     totalFindingsCreated: number;
     totalFindingsDeduped: number;
     totalDiscoveredEntities: number;
+    totalWorkerRuns?: number;
+    successfulWorkerRuns?: number;
 }
 
 export const playbookRunner = {
-    async startRun(input: StartRunInput): Promise<StartRunResult> {
+    async startRun(input: StartRunInput): Promise<StartRunResult | BudgetBlockedResult> {
         const playbook = getPlaybook(input.playbookKey);
         if (!playbook) throw new PlaybookRunnerError(`unknown_playbook:${input.playbookKey}`);
 
@@ -106,6 +117,54 @@ export const playbookRunner = {
             .limit(1);
         if (!link) throw new PlaybookRunnerError("root_entity_not_linked_to_engagement");
 
+        // Sprint 1.3 — Hop-Budget-Enforcement (features.md §2.4).
+        // Hop-Depth = parent.hopDepth + 1 für Rule-getriggerte Runs, 0 für manuelle.
+        // engagements.osintMaxHops ist der Hard-Cap (default 2). Bei Überschreitung
+        // wird der Run NICHT angelegt, sondern als blocked-Audit-Eintrag persistiert.
+        let hopDepth = 0;
+        let parentRunId: number | null = null;
+        if (input.parentRunId != null) {
+            const [parent] = await database
+                .select({ hopDepth: playbookRuns.hopDepth })
+                .from(playbookRuns)
+                .where(eq(playbookRuns.id, input.parentRunId))
+                .limit(1);
+            if (!parent) {
+                // Parent existiert nicht — wir treaten es als manuell, loggen aber
+                // den Inkonsistenz-Hint im Audit (kann passieren wenn Parent gerade
+                // gelöscht/cancelled wurde).
+                console.warn("[playbook-runner] parent_run not found", { parentRunId: input.parentRunId });
+            } else {
+                parentRunId = input.parentRunId;
+                hopDepth = parent.hopDepth + 1;
+                if (hopDepth > engagement.osintMaxHops) {
+                    void auditLogService.log({
+                        action: "playbook_run.hop_budget_blocked",
+                        actorUserId: input.triggeredByUserId ?? null,
+                        engagementId: input.engagementId,
+                        targetType: "playbook",
+                        payload: {
+                            playbookKey: playbook.key,
+                            rootEntityId: input.rootEntityId,
+                            parentRunId,
+                            hopDepthRequested: hopDepth,
+                            hopDepthLimit: engagement.osintMaxHops,
+                            triggeredBy: input.triggeredBy ?? "manual",
+                        },
+                        success: false,
+                        errorMessage: `hop_budget_exceeded:requested=${hopDepth},limit=${engagement.osintMaxHops}`,
+                    });
+                    return {
+                        blocked: true,
+                        reason: "hop_budget_exceeded",
+                        hopDepthRequested: hopDepth,
+                        hopDepthLimit: engagement.osintMaxHops,
+                        parentRunId,
+                    };
+                }
+            }
+        }
+
         const [run] = await database
             .insert(playbookRuns)
             .values({
@@ -116,6 +175,8 @@ export const playbookRunner = {
                 triggeredByUserId: input.triggeredByUserId ?? null,
                 params: { rootEntityId: input.rootEntityId, ...(input.params ?? {}) },
                 resultSummary: emptySummary(playbook.key, input.rootEntityId) as unknown as Record<string, unknown>,
+                hopDepth,
+                parentRunId,
             })
             .returning();
 
@@ -186,7 +247,14 @@ async function executeRun(
 
     const ordered = topoSort(playbook.steps);
 
-    let runFailed = false;
+    // Run-Status-Semantik: "failed" nur wenn entweder ein Runner-Level-Fehler
+    // (Condition/Target-Resolution/Worker-not-registered) auftrat ODER alle
+    // ausgeführten Worker fehlgeschlagen sind. Einzelne Worker-Failures
+    // (z.B. tote Subdomains, die DNS-unresolvable sind) markieren den Run
+    // sonst nicht als failed — der Customer-Report zeigt sie via `result_summary`.
+    let runnerFatalError = false;
+    let successfulWorkerRuns = 0;
+    let totalWorkerRuns = 0;
 
     for (const step of ordered) {
         const ctx: PlaybookContext = {
@@ -262,7 +330,7 @@ async function executeRun(
             };
             stepOutputs[step.key] = noWorkerOutput;
             summary.steps.push(noWorkerOutput);
-            runFailed = true;
+            runnerFatalError = true;
             await persistRunSummary(runId, summary);
             continue;
         }
@@ -286,7 +354,7 @@ async function executeRun(
             };
             stepOutputs[step.key] = targetErrOutput;
             summary.steps.push(targetErrOutput);
-            runFailed = true;
+            runnerFatalError = true;
             await persistRunSummary(runId, summary);
             continue;
         }
@@ -318,130 +386,50 @@ async function executeRun(
         };
 
         for (const target of targets) {
-            // Authorization-Gate: passive_only ist immer ok, active wäre hier zu blocken.
-            const decision = await authorizationService.canScan(
-                { kind: "entity", id: target.id },
-                worker.requiredScope,
-            );
-
-            const [wrun] = await database
-                .insert(workerRuns)
-                .values({
-                    playbookRunId: runId,
-                    engagementId: engagement.id,
-                    entityId: target.id,
-                    workerKey: worker.jobKey,
-                    status: decision.allowed ? "running" : "skipped",
-                    provider: "local",
-                    startedAt: new Date(),
-                })
-                .returning();
-
-            if (!decision.allowed) {
-                await database
-                    .update(workerRuns)
-                    .set({
-                        status: "skipped",
-                        finishedAt: new Date(),
-                        error: `authorization_denied:${decision.reason}`,
-                    })
-                    .where(eq(workerRuns.id, wrun.id));
-                stepOutput.runs.push({
-                    targetEntityId: target.id,
-                    targetValue: target.value,
-                    status: "skipped",
-                    findingsCreated: 0,
-                    techDiscovered: 0,
-                    discoveredEntities: 0,
-                    error: `authorization_denied:${decision.reason}`,
-                });
-                continue;
-            }
-
-            const result = await runWorkerSafely(worker, {
+            const out = await executeWorker({
+                worker,
                 target,
-                workerRunId: wrun.id,
+                engagement,
+                rootEntity,
                 timeoutMs: step.timeoutMs ?? worker.defaultTimeoutMs,
+                playbookRunId: runId,
+                triggeredByUserId: input.triggeredByUserId ?? null,
             });
 
-            // Findings persistieren.
-            let findingsCreated = 0;
-            let findingsDeduped = 0;
-            for (const draft of result.findings) {
-                try {
-                    const out = await findingService.persistDraft({
-                        engagementId: engagement.id,
-                        entityId: target.id,
-                        workerRunId: wrun.id,
-                        draft,
-                    });
-                    if (out.kind === "created") findingsCreated++;
-                    else findingsDeduped++;
-                } catch (err) {
-                    console.error("[playbook-runner] failed to persist finding", {
-                        runId, workerRunId: wrun.id, err: (err as Error).message,
-                    });
+            // Tech-Caches aufrechterhalten — die hängen am Step-Loop, nicht am
+            // Worker-Executor (downstream-Steps lesen techByEntityId via ctx).
+            if (out.techCount > 0) {
+                techByEntityId[target.id] = await techFingerprintService.getTechSet(target.id);
+                techDetailsByEntityId[target.id] = await techFingerprintService.list(target.id);
+            }
+            for (const eid of out.discoveredEntityIds) {
+                if (!discoveredEntityIds.has(eid)) {
+                    discoveredEntityIds.add(eid);
+                    techByEntityId[eid] = await techFingerprintService.getTechSet(eid);
+                    techDetailsByEntityId[eid] = await techFingerprintService.list(eid);
                 }
             }
-
-            // Tech-Drafts merge.
-            const techCount = result.techFingerprints?.length ?? 0;
-            if (techCount > 0 && result.techFingerprints) {
-                try {
-                    await techFingerprintService.applyDrafts(target.id, result.techFingerprints);
-                    techByEntityId[target.id] = await techFingerprintService.getTechSet(target.id);
-                    techDetailsByEntityId[target.id] = await techFingerprintService.list(target.id);
-                } catch (err) {
-                    console.error("[playbook-runner] tech apply failed", {
-                        runId, entityId: target.id, err: (err as Error).message,
-                    });
-                }
-            }
-
-            // Discovered Entities — upsert + verlinken + Relationship anlegen.
-            let newEntitiesCount = 0;
-            if (result.discoveredEntities && result.discoveredEntities.length > 0) {
-                const persisted = await persistDiscoveredEntities({
-                    engagementId: engagement.id,
-                    rootEntity,
-                    drafts: result.discoveredEntities,
-                    addedByUserId: input.triggeredByUserId ?? null,
-                });
-                newEntitiesCount = persisted.newlyLinkedCount;
-                for (const e of persisted.entities) {
-                    if (!discoveredEntityIds.has(e.id)) {
-                        discoveredEntityIds.add(e.id);
-                        techByEntityId[e.id] = await techFingerprintService.getTechSet(e.id);
-                        techDetailsByEntityId[e.id] = await techFingerprintService.list(e.id);
-                    }
-                }
-            }
-
-            await database
-                .update(workerRuns)
-                .set({
-                    status: result.success ? "completed" : "failed",
-                    finishedAt: new Date(),
-                    durationMs: result.durationMs,
-                    error: result.success ? null : (result.error ?? "worker_failed"),
-                })
-                .where(eq(workerRuns.id, wrun.id));
 
             stepOutput.runs.push({
                 targetEntityId: target.id,
                 targetValue: target.value,
-                status: result.success ? "completed" : "failed",
-                findingsCreated,
-                techDiscovered: techCount,
-                discoveredEntities: newEntitiesCount,
-                error: result.success ? undefined : result.error,
+                status: out.status,
+                findingsCreated: out.findingsCreated,
+                techDiscovered: out.techCount,
+                discoveredEntities: out.newDiscoveredEntities,
+                error: out.error,
             });
 
-            summary.totalFindingsCreated += findingsCreated;
-            summary.totalFindingsDeduped += findingsDeduped;
-            summary.totalDiscoveredEntities += newEntitiesCount;
+            summary.totalFindingsCreated += out.findingsCreated;
+            summary.totalFindingsDeduped += out.findingsDeduped;
+            summary.totalDiscoveredEntities += out.newDiscoveredEntities;
 
-            if (!result.success) runFailed = true;
+            // Skipped-Runs zählen wir nicht als ausgeführt — sonst würde ein
+            // budget-blockierter Run als Failure missverstanden.
+            if (out.status !== "skipped") {
+                totalWorkerRuns += 1;
+                if (out.status === "completed") successfulWorkerRuns += 1;
+            }
         }
 
         stepOutputs[step.key] = stepOutput;
@@ -449,14 +437,33 @@ async function executeRun(
         await persistRunSummary(runId, summary);
     }
 
+    summary.totalWorkerRuns = totalWorkerRuns;
+    summary.successfulWorkerRuns = successfulWorkerRuns;
+
+    const allWorkersFailed = totalWorkerRuns > 0 && successfulWorkerRuns === 0;
+    const runFailed = runnerFatalError || allWorkersFailed;
+    const finalStatus: PlaybookRunStatus = runFailed ? "failed" : "completed";
+
     await database
         .update(playbookRuns)
         .set({
-            status: runFailed ? "failed" : "completed",
+            status: finalStatus,
             finishedAt: new Date(),
             resultSummary: summary as unknown as Record<string, unknown>,
         })
         .where(eq(playbookRuns.id, runId));
+
+    secuEventBus.publish({
+        type: "playbook_run.completed",
+        runId,
+        engagementId: engagement.id,
+        engagementKind: engagement.kind,
+        playbookKey: playbook.key,
+        status: finalStatus,
+        rootEntityId: rootEntity.id,
+        findingsCreated: summary.totalFindingsCreated,
+        discoveredEntities: summary.totalDiscoveredEntities,
+    });
 
     void auditLogService.log({
         action: "playbook_run.finish",
@@ -475,103 +482,9 @@ async function executeRun(
     });
 }
 
-async function runWorkerSafely(worker: SecurityWorker, ctx: WorkerContext): Promise<WorkerResult> {
-    try {
-        const ac = new AbortController();
-        const wallTimer = setTimeout(() => ac.abort(), Math.max(ctx.timeoutMs + 5_000, ctx.timeoutMs));
-        try {
-            return await worker.run({ ...ctx, abortSignal: ac.signal });
-        } finally {
-            clearTimeout(wallTimer);
-        }
-    } catch (err) {
-        return {
-            success: false,
-            findings: [],
-            error: (err as Error).message,
-            durationMs: 0,
-        };
-    }
-}
-
-async function persistDiscoveredEntities(input: {
-    engagementId: number;
-    rootEntity: Entity;
-    drafts: DiscoveredEntityDraft[];
-    addedByUserId: number | null;
-}): Promise<{ entities: Entity[]; newlyLinkedCount: number }> {
-    const persisted: Entity[] = [];
-    let newlyLinked = 0;
-
-    for (const draft of input.drafts) {
-        if (!isAcceptedKind(draft.kind)) continue;
-
-        const entity = await entityService.upsert({
-            kind: draft.kind as Entity["kind"],
-            displayName: draft.displayName ?? draft.primaryValue,
-            canonical: {
-                kind: draft.kind as Entity["kind"],
-                primaryValue: draft.primaryValue,
-                discriminator: draft.discriminator ?? null,
-            },
-            data: draft.data,
-        });
-        persisted.push(entity);
-
-        const [linkExists] = await database
-            .select({ id: engagementEntities.id })
-            .from(engagementEntities)
-            .where(and(eq(engagementEntities.engagementId, input.engagementId), eq(engagementEntities.entityId, entity.id)))
-            .limit(1);
-        if (!linkExists) {
-            await database
-                .insert(engagementEntities)
-                .values({
-                    engagementId: input.engagementId,
-                    entityId: entity.id,
-                    role: "in_scope",
-                    addedBy: input.addedByUserId,
-                })
-                .onConflictDoNothing();
-            newlyLinked += 1;
-        }
-
-        const rel = draft.relationshipToRoot;
-        if (rel) {
-            const direction = rel.direction ?? "from_discovered_to_root";
-            const fromId = direction === "from_discovered_to_root" ? entity.id : input.rootEntity.id;
-            const toId = direction === "from_discovered_to_root" ? input.rootEntity.id : entity.id;
-            if (fromId !== toId) {
-                try {
-                    await relationshipService.upsert({
-                        fromEntityId: fromId,
-                        toEntityId: toId,
-                        kind: rel.kind,
-                        confidence: rel.confidence ?? 90,
-                        source: draft.source ?? "recon_unknown",
-                    });
-                } catch (err) {
-                    console.error("[playbook-runner] relationship upsert failed", {
-                        fromId, toId, kind: rel.kind, err: (err as Error).message,
-                    });
-                }
-            }
-        }
-    }
-    return { entities: persisted, newlyLinkedCount: newlyLinked };
-}
-
 async function loadEntitiesByIds(ids: number[]): Promise<Entity[]> {
     if (ids.length === 0) return [];
     return database.select().from(entities).where(inArray(entities.id, ids));
-}
-
-const ACCEPTED_ENTITY_KINDS = new Set([
-    "asset_domain", "asset_subdomain", "asset_ip", "asset_host", "asset_url",
-    "person", "organization", "location", "credential_ref", "document",
-]);
-function isAcceptedKind(kind: string): boolean {
-    return ACCEPTED_ENTITY_KINDS.has(kind);
 }
 
 function topoSort(steps: PlaybookStep[]): PlaybookStep[] {

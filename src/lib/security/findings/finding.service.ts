@@ -7,12 +7,15 @@
 import { and, eq, sql } from "drizzle-orm";
 import { database } from "@/db";
 import {
+    engagements,
+    entities,
     findings,
     type Finding,
     type FindingStatus,
 } from "@/db/individual/individual-schema";
 import type { FindingDraft } from "../workers/worker.types";
 import { buildFindingFingerprint } from "./fingerprint";
+import { secuEventBus } from "../rules/event-bus";
 
 export type PersistDraftInput = {
     engagementId: number;
@@ -63,7 +66,9 @@ export const findingService = {
             .returning();
 
         if (inserted.length > 0) {
-            return { kind: "created", finding: inserted[0] };
+            const finding = inserted[0];
+            void publishFindingCreated(finding);
+            return { kind: "created", finding };
         }
 
         // Duplikat: bestehendes Finding holen und last-seen patchen.
@@ -117,3 +122,37 @@ export const findingService = {
         return row?.cnt ?? 0;
     },
 };
+
+async function publishFindingCreated(finding: Finding): Promise<void> {
+    try {
+        const [eng] = await database
+            .select({ kind: engagements.kind })
+            .from(engagements)
+            .where(eq(engagements.id, finding.engagementId))
+            .limit(1);
+        let entityKind: string | null = null;
+        if (finding.entityId) {
+            const [ent] = await database
+                .select({ kind: entities.kind })
+                .from(entities)
+                .where(eq(entities.id, finding.entityId))
+                .limit(1);
+            entityKind = ent?.kind ?? null;
+        }
+        secuEventBus.publish({
+            type: "finding.created",
+            findingId: finding.id,
+            engagementId: finding.engagementId,
+            engagementKind: eng?.kind ?? null,
+            entityId: finding.entityId,
+            entityKind: entityKind as never,
+            severity: finding.severity,
+            category: finding.category,
+            title: finding.title,
+            fingerprint: finding.fingerprint,
+            cveIds: (finding.cveIds ?? []) as string[],
+        });
+    } catch (err) {
+        console.error("[finding.service] event publish failed", { findingId: finding.id, err: (err as Error).message });
+    }
+}

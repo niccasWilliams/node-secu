@@ -11,6 +11,11 @@ const entityKind = z.enum([
     "location",
     "credential_ref",
     "document",
+    // Phase 2.7 OSINT-Identity-Kinds
+    "email_address",
+    "username",
+    "phone_number",
+    "social_account",
 ]);
 
 export const entityCreateBodySchema = z
@@ -29,6 +34,8 @@ export const entityListQuerySchema = z
         q: z.string().max(256).optional(),
         limit: z.coerce.number().int().min(1).max(500).optional(),
         offset: z.coerce.number().int().min(0).optional(),
+        // Sprint 1.2 (features.md §2.2) — default: false (speculative Entities ausgeblendet).
+        includeSpeculative: z.coerce.boolean().optional(),
     })
     .strict();
 
@@ -53,7 +60,15 @@ export const entityTagBodySchema = z
     })
     .strict();
 
+// Phase 2.7 — manueller Person/Email-Full-Enrichment-Trigger
+export const entityEnrichFullBodySchema = z
+    .object({
+        engagementId: z.number().int().positive(),
+    })
+    .strict();
+
 export type EntityCreateBody = z.infer<typeof entityCreateBodySchema>;
 export type EntityListQuery = z.infer<typeof entityListQuerySchema>;
 export type EntityRelationshipBody = z.infer<typeof entityRelationshipBodySchema>;
 export type EntityTagBody = z.infer<typeof entityTagBodySchema>;
+export type EntityEnrichFullBody = z.infer<typeof entityEnrichFullBodySchema>;

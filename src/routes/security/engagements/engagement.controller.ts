@@ -1,9 +1,13 @@
 import type { Request, Response } from "express";
+import { desc, eq } from "drizzle-orm";
+import { database } from "@/db";
+import { secuSignalChainLog } from "@/db/individual/individual-schema";
 import { responseHandler } from "@/lib/communication";
 import { auditLogService } from "@/lib/security/audit/audit-log.service";
 import { engagementService } from "@/lib/security/engagements/engagement.service";
 import { graphService } from "@/lib/security/engagements/graph.service";
 import { entityService } from "@/lib/security/entities/entity.service";
+import { relationshipService } from "@/lib/security/entities/relationship.service";
 import type {
     EngagementCreateBody,
     EngagementEntityLinkBody,
@@ -11,6 +15,7 @@ import type {
     EngagementNoteBody,
     EngagementUpdateBody,
     GrantAuthBody,
+    OsintEmailEntityBody,
 } from "./engagement.dto";
 import type { ValidatedRequest } from "@/api-contract/contract.middleware";
 import { getUserIdFromRequest } from "@/util/utils";
@@ -274,6 +279,85 @@ class EngagementController {
                 payload: { entityId: body.entityId, kind: body.kind, scope: body.scope },
             });
             return responseHandler(res, 201, undefined, { authorizationId: authId, engagementEntityId: link.id });
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    /**
+     * Phase 2.7 — POST /engagements/:id/entities/email
+     * Convenience-Endpoint: legt eine email_address-Entity an, verlinkt sie zum
+     * Engagement, optional zu einer Person via owns_email-Relationship. Auto-Chain
+     * (osint_email_passive) feuert via entity.created-Event automatisch.
+     */
+    async linkOsintEmailEntity(req: Request, res: Response) {
+        try {
+            const { id } = v<{ id: number }>(req, "params");
+            const body = v<OsintEmailEntityBody>(req, "body");
+            const userId = (await getUserIdFromRequest(req)) ?? null;
+
+            const email = body.email.trim().toLowerCase();
+            const [local, domain] = email.split("@");
+
+            const entity = await entityService.upsert({
+                kind: "email_address",
+                displayName: email,
+                canonical: { kind: "email_address", primaryValue: email },
+                data: { local, domain, addedManually: true, addedBy: userId },
+            });
+
+            const link = await engagementService.linkEntity({
+                engagementId: id,
+                entityId: entity.id,
+                addedBy: userId,
+            });
+
+            let relId: number | null = null;
+            if (body.personId) {
+                const rel = await relationshipService.upsert({
+                    fromEntityId: body.personId,
+                    toEntityId: entity.id,
+                    kind: "owns_email",
+                    confidence: 100,
+                    source: "manual_api",
+                });
+                relId = rel.id;
+            }
+
+            await auditLogService.log({
+                action: "engagement.osint_email_link",
+                actorUserId: userId,
+                engagementId: id,
+                targetType: "entity",
+                targetId: entity.id,
+                payload: { email, personId: body.personId ?? null, relationshipId: relId },
+            });
+
+            return responseHandler(res, 201, undefined, {
+                entity,
+                engagementEntityId: link.id,
+                relationshipId: relId,
+            });
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    /**
+     * Phase 2.7 — GET /engagements/:id/signal-chains
+     * Listet OSINT-Signal-Chain-Logs für das Engagement (osint_person_full-Triggers,
+     * manuelle Recon-Auslösung). Sortiert: neueste zuerst.
+     */
+    async listSignalChains(req: Request, res: Response) {
+        try {
+            const { id } = v<{ id: number }>(req, "params");
+            const rows = await database
+                .select()
+                .from(secuSignalChainLog)
+                .where(eq(secuSignalChainLog.engagementId, id))
+                .orderBy(desc(secuSignalChainLog.startedAt))
+                .limit(200);
+            return responseHandler(res, 200, undefined, rows);
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");
         }
