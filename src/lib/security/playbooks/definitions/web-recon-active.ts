@@ -27,6 +27,10 @@
 // per-entity-Chains. Das hält die Run-ID-Granularität sauber: ein
 // web_recon_active = ein Run, plus N getriggerte sub-runs.
 //
+// Sprint-2-Owner-Discovery (rootOnly, parallel zur Subdomain-Enum):
+//   domain_whois_passive / domain_impressum_extract / domain_microsoft_tenant /
+//   domain_html_pivots_extract — siehe web-recon-passive.ts für die Begründung.
+//
 // Warum OSINT-Steps NUR auf der Apex-Domain (rootOnly):
 // Wildcard-Zertifikate (*.example.com) stellen pro CT-Log einen separaten
 // Sub-Eintrag dar — würden wir CT-Mining pro Subdomain ausführen, gäbe es
@@ -53,6 +57,21 @@ function rootPlusDiscoveredHosts(ctx: PlaybookContext): PlaybookTarget[] {
             out.push(entityToTarget(e));
             seen.add(e.id);
         }
+    }
+    return out;
+}
+
+/**
+ * Sprint 3 — alle social_account-Entities mit data.platform="github" einsammeln.
+ * Dependent steps (github_repos_public, github_events_public) targeten genau diese.
+ */
+function githubSocialAccounts(ctx: PlaybookContext): PlaybookTarget[] {
+    const out: PlaybookTarget[] = [];
+    for (const e of ctx.discoveredEntities) {
+        if (e.kind !== "social_account") continue;
+        const data = (e.data ?? {}) as Record<string, unknown>;
+        if (data.platform !== "github") continue;
+        out.push(entityToTarget(e));
     }
     return out;
 }
@@ -171,12 +190,41 @@ export const webReconActivePlaybook: Playbook = {
             targets: rootPlusDiscoveredHosts,
             timeoutMs: 30_000,
         },
+        // Sprint-2 Owner-Discovery — rootOnly, parallel zum Subdomain-Fan-out.
+        {
+            key: "domain_whois_passive",
+            label: "OSINT — RDAP/WHOIS (Owner-Name + Email + Adresse)",
+            workerKey: "domain_whois_passive",
+            targets: rootOnly,
+            timeoutMs: 30_000,
+        },
+        {
+            key: "domain_impressum_extract",
+            label: "OSINT — Impressum-Crawler (§5 + Cross-Domain-NER)",
+            workerKey: "domain_impressum_extract",
+            targets: rootOnly,
+            timeoutMs: 60_000,
+        },
+        {
+            key: "domain_microsoft_tenant",
+            label: "OSINT — M365/Entra-ID Tenant-Detect",
+            workerKey: "domain_microsoft_tenant",
+            targets: rootOnly,
+            timeoutMs: 15_000,
+        },
+        {
+            key: "domain_html_pivots_extract",
+            label: "OSINT — Tracking-IDs + Build-Hashes (GA/GTM/Pixel/Webpack/Vite/Sentry)",
+            workerKey: "domain_html_pivots_extract",
+            targets: rootOnly,
+            timeoutMs: 30_000,
+        },
         {
             key: "ct_email_mining",
             label: "OSINT — CT-Logs RFC822-SAN-Email-Mining (Apex)",
             workerKey: "domain_ct_email_mining",
             targets: rootOnly,
-            timeoutMs: 60_000,
+            timeoutMs: 120_000,
         },
         {
             key: "github_personnel",
@@ -187,10 +235,36 @@ export const webReconActivePlaybook: Playbook = {
             timeoutMs: 60_000,
         },
         {
+            key: "github_brand_search",
+            label: "OSINT — GitHub-User per SLD-Brand-Match (+ Hints)",
+            workerKey: "domain_github_brand",
+            targets: rootOnly,
+            skipReason: "github_token_missing",
+            timeoutMs: 90_000,
+        },
+        {
+            key: "github_repos",
+            label: "OSINT — Public Repos der gefundenen GitHub-Accounts",
+            workerKey: "github_repos_public",
+            dependsOn: ["github_personnel", "github_brand_search"],
+            targets: githubSocialAccounts,
+            skipReason: "no_github_social_accounts",
+            timeoutMs: 30_000,
+        },
+        {
+            key: "github_events",
+            label: "OSINT — Commit-Author-Email-Mining aus public PushEvents",
+            workerKey: "github_events_public",
+            dependsOn: ["github_personnel", "github_brand_search"],
+            targets: githubSocialAccounts,
+            skipReason: "no_github_social_accounts",
+            timeoutMs: 30_000,
+        },
+        {
             key: "email_pattern_inference",
             label: "OSINT — Statistische Email-Pattern-Inferenz",
             workerKey: "email_pattern_inference",
-            dependsOn: ["ct_email_mining", "github_personnel"],
+            dependsOn: ["ct_email_mining", "github_personnel", "github_events"],
             targets: rootOnly,
             skipReason: "insufficient_email_sample",
             timeoutMs: 30_000,

@@ -13,6 +13,14 @@
 //   5. wp_passive_check   ─ Tech-aware Step: läuft nur, wenn HTTP-Headers-Step
 //                          oder ein vorheriger Tech-Eintrag "wordpress" enthält.
 //                          Demonstriert die "skipped wegen condition"-Mechanik.
+//
+// Sprint-2-Owner-Discovery (rootOnly, parallel zur Subdomain-Enum):
+//   - domain_whois_passive       → RDAP/DENIC Owner-Belege (Person/Org/Email)
+//   - domain_impressum_extract   → §5-Impressum + Cross-Domain-NER
+//   - domain_microsoft_tenant    → M365/Entra-ID Tenant-Detect (Cross-Domain-Identifier)
+//   - domain_html_pivots_extract → GA/GTM/Facebook-Pixel/Build-Hashes → secu_html_pivots
+// Bewusst rootOnly: Wildcard-Zerts und Subdomain-Impressum führen sonst zu
+// massenhaft Doppel-Hits / False-Positive-Owner-Pivots.
 
 import type { Entity } from "@/db/individual/individual-schema";
 import type { Playbook, PlaybookContext, PlaybookTarget } from "../playbook.types";
@@ -136,12 +144,42 @@ export const webReconPassivePlaybook: Playbook = {
             targets: rootPlusDiscoveredHosts,
             timeoutMs: 30_000,
         },
+        // Sprint-2 Owner-Discovery — rootOnly, unabhängig vom Subdomain-Fan-out.
+        // Topo-Sort der Runner parallelisiert sie mit recon_subdomains/http_headers.
+        {
+            key: "domain_whois_passive",
+            label: "OSINT — RDAP/WHOIS (Owner-Name + Email + Adresse)",
+            workerKey: "domain_whois_passive",
+            targets: rootOnly,
+            timeoutMs: 30_000,
+        },
+        {
+            key: "domain_impressum_extract",
+            label: "OSINT — Impressum-Crawler (§5 + Cross-Domain-NER)",
+            workerKey: "domain_impressum_extract",
+            targets: rootOnly,
+            timeoutMs: 60_000,
+        },
+        {
+            key: "domain_microsoft_tenant",
+            label: "OSINT — M365/Entra-ID Tenant-Detect",
+            workerKey: "domain_microsoft_tenant",
+            targets: rootOnly,
+            timeoutMs: 15_000,
+        },
+        {
+            key: "domain_html_pivots_extract",
+            label: "OSINT — Tracking-IDs + Build-Hashes (GA/GTM/Pixel/Webpack/Vite/Sentry)",
+            workerKey: "domain_html_pivots_extract",
+            targets: rootOnly,
+            timeoutMs: 30_000,
+        },
         {
             key: "ct_email_mining",
             label: "OSINT — CT-Logs Email-Mining (Apex)",
             workerKey: "domain_ct_email_mining",
             targets: rootOnly,
-            timeoutMs: 60_000,
+            timeoutMs: 120_000,
         },
         {
             key: "github_personnel",

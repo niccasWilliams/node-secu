@@ -64,11 +64,36 @@ export const domainCtEmailMiningWorker: SecurityWorker = {
             // %25 = wildcard so we get certs for the domain itself + any sub-records
             // that may carry RFC822-SANs (admin@... typischerweise im selben Zert wie *.domain.tld).
             const url = `https://crt.sh/?q=%25.${encodeURIComponent(domain)}&output=json`;
-            const res = await osintHttp.client().get<CrtShRecord[]>(url, {
-                timeout: 30_000,
-                signal: ctx.abortSignal,
-                validateStatus: () => true,
-            });
+
+            // crt.sh ist auf großen TLDs/Domains regelmäßig 40-60s slow. Wir geben 90s
+            // pro Versuch und retry'n einmal auf reine Timeout-Codes (ECONNABORTED/
+            // ETIMEDOUT). 429/503 werden weiter unten via markProvider429 gehandhabt.
+            const PER_ATTEMPT_TIMEOUT_MS = 90_000;
+            let res: { status: number; data: unknown } | null = null;
+            let timeoutErr: unknown = null;
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                    res = await osintHttp.client().get<CrtShRecord[]>(url, {
+                        timeout: PER_ATTEMPT_TIMEOUT_MS,
+                        signal: ctx.abortSignal,
+                        validateStatus: () => true,
+                    });
+                    timeoutErr = null;
+                    break;
+                } catch (err: unknown) {
+                    const e = err as { code?: string; response?: { status?: number } };
+                    const isPureTimeout =
+                        (e.code === "ECONNABORTED" || e.code === "ETIMEDOUT") && !e.response;
+                    if (attempt === 1 && isPureTimeout && !ctx.abortSignal?.aborted) {
+                        timeoutErr = err;
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+            if (!res) {
+                throw timeoutErr ?? new Error("ct_sh_request_failed");
+            }
 
             if (res.status === 429 || res.status === 503) {
                 await markProvider429(providerKey, `crt.sh ${res.status}`);
