@@ -1,15 +1,22 @@
 
-import { User, Role } from "@/db/schema";
+import { UserInsert, Role, roles } from "@/db/schema";
 import { AppPermissions, AppPermissionValue, permissionService } from "@/routes/auth/roles/permissions/permission.service";
 import { userService } from "@/routes/auth/users/user/user.service";
 import { roleService } from "@/routes/auth/roles/roles/role.service";
 import { roleAssignmentService } from "@/routes/auth/roles/role-assignments/role-assignment.service";
+import { database } from "@/db";
+import { eq } from "drizzle-orm";
 import { DateTime } from "luxon";
 
 
-const individualUser: User[] = [
-
-
+const individualUser: UserInsert[] = [
+    {
+        externalUserId: "2",
+        email: "niclaspilz0@gmail.com",
+        firstName: "Claude",
+        lastName: "AI",
+        createdAt: DateTime.now().toJSDate(),
+    },
 ]
 
 const individualRole = {
@@ -73,6 +80,12 @@ const appENTERPRISEAcess: AppPermissionValue[] = [
 ];
 
 
+async function findOrCreateRole(name: string, description: string, isSellable: boolean = false): Promise<Role> {
+    const [existing] = await database.select().from(roles).where(eq(roles.name, name)).limit(1);
+    if (existing) return existing;
+    return findOrCreateRole(name, description, isSellable);
+}
+
 export async function individualUserSeed() {
     let createdIndividualUser: User | null = null;
     let createdRole: Role | null = null;
@@ -89,7 +102,7 @@ export async function individualUserSeed() {
 
     // Create Individual Role
 
-    createdRole = await roleService.createRole(individualRole.name, individualRole.description, individualRole.isSellable);
+    createdRole = await findOrCreateRole(individualRole.name, individualRole.description, individualRole.isSellable);
     console.log(`✅ Created role: ${createdRole.name}`);
 
     // Assign permissions to Individual Role
@@ -116,7 +129,7 @@ export async function individualUserSeed() {
         console.error("❌ No user found to assign the role.");
     }
 
-    const userAccessRoleCreated = await roleService.createRole(baseAccessRole.name, baseAccessRole.description, baseAccessRole.isSellable);
+    const userAccessRoleCreated = await findOrCreateRole(baseAccessRole.name, baseAccessRole.description, baseAccessRole.isSellable);
     console.log(`✅ Created role: ${userAccessRoleCreated.name}`);
 
     for (const permissionName of appBASEAcess) {
@@ -135,7 +148,7 @@ export async function individualUserSeed() {
 
 
 
-    const userPremiumAccessRoleCreated = await roleService.createRole(premiumAccessRole.name, premiumAccessRole.description, premiumAccessRole.isSellable);
+    const userPremiumAccessRoleCreated = await findOrCreateRole(premiumAccessRole.name, premiumAccessRole.description, premiumAccessRole.isSellable);
     console.log(`✅ Created role: ${userPremiumAccessRoleCreated.name}`);
 
     for (const permissionName of appPREMIUMAcess) {
@@ -151,7 +164,7 @@ export async function individualUserSeed() {
 
 
 
-    const userEnterpriseAccessRoleCreated = await roleService.createRole(enterpriseAccessRole.name, enterpriseAccessRole.description, enterpriseAccessRole.isSellable);
+    const userEnterpriseAccessRoleCreated = await findOrCreateRole(enterpriseAccessRole.name, enterpriseAccessRole.description, enterpriseAccessRole.isSellable);
     console.log(`✅ Created role: ${userEnterpriseAccessRoleCreated.name}`);
 
     for (const permissionName of appENTERPRISEAcess) {
