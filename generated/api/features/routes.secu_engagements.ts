@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T00:05:39.691Z
+// Generated at: 2026-05-08T19:53:16.140Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEngagementCreateParams = undefined;
@@ -126,6 +126,25 @@ export type SecuEngagementAuthGrantBody = {
 };
 export type SecuEngagementAuthGrantResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
 export type SecuEngagementAuthGrantResponse = import("../types").ApiEnvelope<SecuEngagementAuthGrantResponseData>;
+
+export type SecuEngagementOsintEmailLinkParams = {
+  id: number;
+};
+export type SecuEngagementOsintEmailLinkQuery = undefined;
+export type SecuEngagementOsintEmailLinkBody = {
+  email: string;
+  personId?: number | null;
+};
+export type SecuEngagementOsintEmailLinkResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementOsintEmailLinkResponse = import("../types").ApiEnvelope<SecuEngagementOsintEmailLinkResponseData>;
+
+export type SecuEngagementSignalChainsListParams = {
+  id: number;
+};
+export type SecuEngagementSignalChainsListQuery = undefined;
+export type SecuEngagementSignalChainsListBody = undefined;
+export type SecuEngagementSignalChainsListResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEngagementSignalChainsListResponse = import("../types").ApiEnvelope<SecuEngagementSignalChainsListResponseData>;
 
 export const apiRoutes_secu_engagements = {
   "secu_engagement_create": {
@@ -318,6 +337,41 @@ export const apiRoutes_secu_engagements = {
       body: SecuEngagementAuthGrantBody;
       response: SecuEngagementAuthGrantResponse;
       responseData: SecuEngagementAuthGrantResponseData;
+    },
+  },
+  "secu_engagement_osint_email_link": {
+    method: "POST",
+    path: "/engagements/:id/entities/email",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Phase 2.7 — Lege email_address-Entity an, verlinke zur Person, Auto-Chain greift",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEngagementOsintEmailLinkParams;
+      query: SecuEngagementOsintEmailLinkQuery;
+      body: SecuEngagementOsintEmailLinkBody;
+      response: SecuEngagementOsintEmailLinkResponse;
+      responseData: SecuEngagementOsintEmailLinkResponseData;
+    },
+  },
+  "secu_engagement_signal_chains_list": {
+    method: "GET",
+    path: "/engagements/:id/signal-chains",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Phase 2.7 — Listet OSINT-Signal-Chain-Logs (manuelle person_full-Trigger + Auto-Chains)",
+      validated: {"params":true,"query":false,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuEngagementSignalChainsListParams;
+      query: SecuEngagementSignalChainsListQuery;
+      body: SecuEngagementSignalChainsListBody;
+      response: SecuEngagementSignalChainsListResponse;
+      responseData: SecuEngagementSignalChainsListResponseData;
     },
   },
 } as const;

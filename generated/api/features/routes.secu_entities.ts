@@ -1,11 +1,11 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T00:05:39.693Z
+// Generated at: 2026-05-08T19:53:16.140Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEntityUpsertParams = undefined;
 export type SecuEntityUpsertQuery = undefined;
 export type SecuEntityUpsertBody = {
-  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document";
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account";
   primaryValue: string;
   displayName?: string;
   discriminator?: string | null;
@@ -16,10 +16,11 @@ export type SecuEntityUpsertResponse = import("../types").ApiEnvelope<SecuEntity
 
 export type SecuEntitySearchParams = undefined;
 export type SecuEntitySearchQuery = {
-  kind?: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document";
+  kind?: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account";
   q?: string;
   limit?: number;
   offset?: number;
+  includeSpeculative?: boolean;
 };
 export type SecuEntitySearchBody = undefined;
 export type SecuEntitySearchResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
@@ -65,6 +66,16 @@ export type SecuEntityTagAddBody = {
 };
 export type SecuEntityTagAddResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
 export type SecuEntityTagAddResponse = import("../types").ApiEnvelope<SecuEntityTagAddResponseData>;
+
+export type SecuEntityEnrichFullParams = {
+  id: number;
+};
+export type SecuEntityEnrichFullQuery = undefined;
+export type SecuEntityEnrichFullBody = {
+  engagementId: number;
+};
+export type SecuEntityEnrichFullResponseData = import("../types").ContractNotReady<"Response type not ready. Use typeRef(\"...\") (preferred) or a concrete Zod schema for responses[].data.">;
+export type SecuEntityEnrichFullResponse = import("../types").ApiEnvelope<SecuEntityEnrichFullResponseData>;
 
 export const apiRoutes_secu_entities = {
   "secu_entity_upsert": {
@@ -170,6 +181,24 @@ export const apiRoutes_secu_entities = {
       body: SecuEntityTagAddBody;
       response: SecuEntityTagAddResponse;
       responseData: SecuEntityTagAddResponseData;
+    },
+  },
+  "secu_entity_enrich_full": {
+    method: "POST",
+    path: "/entities/:id/enrich/full",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-entities"],
+      summary: "Phase 2.7 — Trigger osint_person_full: load linked identities, run their playbooks, persist signal_chain_log",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEntityEnrichFullParams;
+      query: SecuEntityEnrichFullQuery;
+      body: SecuEntityEnrichFullBody;
+      response: SecuEntityEnrichFullResponse;
+      responseData: SecuEntityEnrichFullResponseData;
     },
   },
 } as const;

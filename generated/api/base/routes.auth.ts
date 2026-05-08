@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-04T18:32:46.346Z
+// Generated at: 2026-05-08T19:53:16.137Z
 // Run `pnpm run api:generate` to regenerate
 
 import type { DirectAuthRequestVerificationResponse, DirectAuthResponse, DirectAuthTokens, DirectAuthUser, DirectAuthVerifyEmailResponse } from "../../frontend-types";

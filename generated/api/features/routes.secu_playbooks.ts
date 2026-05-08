@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T00:05:39.693Z
+// Generated at: 2026-05-08T19:53:16.140Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuPlaybookRegistryListParams = undefined;

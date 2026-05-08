@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-04T18:32:46.345Z
+// Generated at: 2026-05-08T19:53:16.136Z
 // Run `pnpm run api:generate` to regenerate
 
 export type GETApiAmpProxyDiscoverParams = undefined;

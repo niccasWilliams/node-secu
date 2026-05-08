@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T09:33:00.470Z
+// Generated at: 2026-05-08T19:53:14.859Z
 // Run `npm run types:generate` to regenerate this file
 
 // ============================================================================
@@ -21,16 +21,18 @@ export type AuthorizationKind = 'own' | 'verified_ownership' | 'written_consent'
 export type AuthorizationProofType = 'dns_txt' | 'http_file' | 'written_contract' | 'manual_owner_verification' | 'none';
 export type EngagementKind = 'solo_lab' | 'ctf' | 'bug_bounty' | 'customer_pentest' | 'internal';
 export type EngagementStatus = 'planning' | 'active' | 'paused' | 'completed' | 'archived';
-export type EntityKind = 'asset_domain' | 'asset_subdomain' | 'asset_ip' | 'asset_host' | 'asset_url' | 'person' | 'organization' | 'location' | 'credential_ref' | 'document' | 'email_address' | 'username' | 'phone_number' | 'social_account';
+export type EntityKind = 'asset_domain' | 'asset_subdomain' | 'asset_ip' | 'asset_host' | 'asset_url' | 'person' | 'organization' | 'location' | 'credential_ref' | 'document' | 'email_address' | 'username' | 'phone_number' | 'social_account' | 'infrastructure_provider';
+export type InfrastructureProviderCategory = 'dns_provider' | 'registrar' | 'hosting' | 'cdn' | 'email_provider' | 'analytics' | 'social_platform';
 export type EngagementEntityRole = 'primary_target' | 'in_scope' | 'out_of_scope' | 'pivot' | 'context';
 export type FindingStatus = 'open' | 'triaged' | 'confirmed' | 'false_positive' | 'fixed';
-export type FindingCategory = 'dns' | 'email_security' | 'tls' | 'http_headers' | 'exposure' | 'cms' | 'auth' | 'injection' | 'cve' | 'config' | 'deps' | 'cert' | 'phishing' | 'leak';
+export type FindingCategory = 'dns' | 'email_security' | 'tls' | 'http_headers' | 'exposure' | 'cms' | 'auth' | 'injection' | 'cve' | 'config' | 'deps' | 'cert' | 'phishing' | 'leak' | 'compliance_imprint';
 export type ArtifactKind = 'screenshot' | 'file' | 'command_output' | 'pcap' | 'credential_dump' | 'note';
 export type PlaybookRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type WorkerRunStatus = 'pending' | 'provisioning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'skipped';
 export type WorkerProvider = 'local' | 'hetzner' | 'aws' | 'digitalocean' | 'docker_host' | 'tor_proxy';
 export type RuleTrigger = 'entity.created' | 'entity.updated' | 'finding.created' | 'playbook_run.completed' | 'schedule';
 export type RuleAction = 'start_playbook' | 'tag_entity' | 'notify_boss' | 'create_finding';
+export type EngagementHintSlot = 'owner_name' | 'owner_city' | 'owner_company' | 'owner_known_email' | 'owner_known_username' | 'owner_alt_domain' | 'industry' | 'free_text';
 
 // ============================================================================
 // BASE APP TYPES (schema.ts)
@@ -640,6 +642,29 @@ export type NewEngagementEntity = {
   addedBy?: number | null;
 };
 
+export type EngagementHint = {
+  id: number;
+  engagementId: number;
+  slot: EngagementHintSlot;
+  value: string;
+  source: string | null;
+  notes: string | null;
+  createdBy: number | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type NewEngagementHint = {
+  engagementId: number;
+  slot: EngagementHintSlot;
+  value: string;
+  source?: string | null;
+  notes?: string | null;
+  createdBy?: number | null;
+  createdAt?: Date;
+  updatedAt?: Date | null;
+};
+
 export type EntityAuthorization = {
   id: number;
   entityId: number;
@@ -913,6 +938,74 @@ export type NewSignalChainLog = {
   startedAt?: Date;
   finishedAt?: Date | null;
 };
+
+export type InfrastructureProvider = {
+  id: number;
+  name: string;
+  category: InfrastructureProviderCategory;
+  matchPatterns: any;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date | null;
+};
+
+export type NewInfrastructureProvider = {
+  name: string;
+  category: InfrastructureProviderCategory;
+  matchPatterns?: any;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date | null;
+};
+
+export type DnsVerificationPivot = {
+  id: number;
+  engagementId: number;
+  entityId: number;
+  idType: string;
+  foundAt: Date;
+};
+
+export type NewDnsVerificationPivot = {
+  engagementId: number;
+  entityId: number;
+  idType: string;
+  foundAt?: Date;
+};
+
+export type DnsNsPivot = {
+  id: number;
+  engagementId: number;
+  entityId: number;
+  source: string;
+  foundAt: Date;
+};
+
+export type NewDnsNsPivot = {
+  engagementId: number;
+  entityId: number;
+  source: string;
+  foundAt?: Date;
+};
+
+export type HtmlPivot = {
+  id: number;
+  engagementId: number;
+  entityId: number;
+  idType: string;
+  idValue: string;
+  foundAt: Date;
+};
+
+export type NewHtmlPivot = {
+  engagementId: number;
+  entityId: number;
+  idType: string;
+  idValue: string;
+  foundAt?: Date;
+};
+
+export type EntityEvidenceClass = "organic" | "hint_seeded";
 
 export type EngagementGraph = {
     engagementId: number;

@@ -7638,6 +7638,170 @@
         "x-transport": "http"
       }
     },
+    "/engagements/:id/entities/email": {
+      "post": {
+        "operationId": "secu_engagement_osint_email_link",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Phase 2.7 — Lege email_address-Entity an, verlinke zur Person, Auto-Chain greift",
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 320
+                  },
+                  "personId": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "email"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/signal-chains": {
+      "get": {
+        "operationId": "secu_engagement_signal_chains_list",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Phase 2.7 — Listet OSINT-Signal-Chain-Logs (manuelle person_full-Trigger + Auto-Chains)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
     "/entities": {
       "post": {
         "operationId": "secu_entity_upsert",
@@ -7704,7 +7868,11 @@
                       "organization",
                       "location",
                       "credential_ref",
-                      "document"
+                      "document",
+                      "email_address",
+                      "username",
+                      "phone_number",
+                      "social_account"
                     ]
                   },
                   "primaryValue": {
@@ -7812,7 +7980,11 @@
                 "organization",
                 "location",
                 "credential_ref",
-                "document"
+                "document",
+                "email_address",
+                "username",
+                "phone_number",
+                "social_account"
               ]
             }
           },
@@ -7842,6 +8014,14 @@
             "schema": {
               "type": "integer",
               "minimum": 0
+            }
+          },
+          {
+            "name": "includeSpeculative",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -8224,6 +8404,631 @@
         "x-transport": "http"
       }
     },
+    "/entities/:id/enrich/full": {
+      "post": {
+        "operationId": "secu_entity_enrich_full",
+        "tags": [
+          "secu-entities"
+        ],
+        "summary": "Phase 2.7 — Trigger osint_person_full: load linked identities, run their playbooks, persist signal_chain_log",
+        "responses": {
+          "202": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "engagementId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "engagementId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/hints": {
+      "get": {
+        "operationId": "secu_engagement_hints_list",
+        "tags": [
+          "secu-hints"
+        ],
+        "summary": "List operator hints attached to an engagement (Sprint 1, OSINT seed material)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "post": {
+        "operationId": "secu_engagement_hints_create",
+        "tags": [
+          "secu-hints"
+        ],
+        "summary": "Create one or more operator hints for an engagement (bulk)",
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "slot": {
+                          "type": "string",
+                          "enum": [
+                            "owner_name",
+                            "owner_city",
+                            "owner_company",
+                            "owner_known_email",
+                            "owner_known_username",
+                            "owner_alt_domain",
+                            "industry",
+                            "free_text"
+                          ]
+                        },
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1024
+                        },
+                        "source": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "notes": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2048
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "slot",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/hints/:hintId": {
+      "patch": {
+        "operationId": "secu_engagement_hints_patch",
+        "tags": [
+          "secu-hints"
+        ],
+        "summary": "Patch a single hint (value/source/notes)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "hintId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "source": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "notes": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "delete": {
+        "operationId": "secu_engagement_hints_delete",
+        "tags": [
+          "secu-hints"
+        ],
+        "summary": "Delete a hint",
+        "responses": {
+          "204": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "hintId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
     "/playbooks": {
       "get": {
         "operationId": "secu_playbook_registry_list",
@@ -8533,6 +9338,1096 @@
           "secu-playbooks"
         ],
         "summary": "Get a single playbook run incl. step summary + worker_runs",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/rules": {
+      "get": {
+        "operationId": "secu_rule_list",
+        "tags": [
+          "secu-rules"
+        ],
+        "summary": "List rules (filter by trigger, enabled, scope)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "trigger",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "entity.created",
+                "entity.updated",
+                "finding.created",
+                "playbook_run.completed",
+                "schedule"
+              ]
+            }
+          },
+          {
+            "name": "enabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^(global|engagement_kind:[a-z_]+|engagement:\\d+)$"
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "post": {
+        "operationId": "secu_rule_create",
+        "tags": [
+          "secu-rules"
+        ],
+        "summary": "Create a declarative rule",
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "pattern": "^(global|engagement_kind:[a-z_]+|engagement:\\d+)$",
+                    "default": "global"
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "enum": [
+                      "entity.created",
+                      "entity.updated",
+                      "finding.created",
+                      "playbook_run.completed",
+                      "schedule"
+                    ]
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "start_playbook",
+                      "tag_entity",
+                      "notify_boss",
+                      "create_finding"
+                    ]
+                  },
+                  "condition": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "actionParams": {
+                    "type": "object",
+                    "additionalProperties": {},
+                    "default": {}
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "trigger",
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/rules/:id": {
+      "get": {
+        "operationId": "secu_rule_get",
+        "tags": [
+          "secu-rules"
+        ],
+        "summary": "Get a single rule",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "patch": {
+        "operationId": "secu_rule_update",
+        "tags": [
+          "secu-rules"
+        ],
+        "summary": "Update a rule (incl. enable/disable — takes effect immediately)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "description": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "scope": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "pattern": "^(global|engagement_kind:[a-z_]+|engagement:\\d+)$"
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "enum": [
+                      "entity.created",
+                      "entity.updated",
+                      "finding.created",
+                      "playbook_run.completed",
+                      "schedule"
+                    ]
+                  },
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "start_playbook",
+                      "tag_entity",
+                      "notify_boss",
+                      "create_finding"
+                    ]
+                  },
+                  "condition": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "actionParams": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "delete": {
+        "operationId": "secu_rule_delete",
+        "tags": [
+          "secu-rules"
+        ],
+        "summary": "Delete a rule",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/workers": {
+      "get": {
+        "operationId": "secu_worker_registry_list",
+        "tags": [
+          "secu-workers"
+        ],
+        "summary": "List all registered workers (registry view) — optionally filtered by scope/targetKind",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "targetKind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "passive_only",
+                "active_safe",
+                "active_intrusive"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/workers/:workerKey/run": {
+      "post": {
+        "operationId": "secu_worker_run_start",
+        "tags": [
+          "secu-workers"
+        ],
+        "summary": "Trigger a single worker against one entity (ad-hoc; no playbook). Synchronously executes and returns the persisted worker_run summary.",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "workerKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entityId": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 3600000
+                  },
+                  "triggeredBy": {
+                    "type": "string",
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "entityId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/workers/runs": {
+      "get": {
+        "operationId": "secu_worker_run_list",
+        "tags": [
+          "secu-workers"
+        ],
+        "summary": "List worker runs for an engagement (filterable by workerKey/status/entityId)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {},
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "workerKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "running",
+                "completed",
+                "failed",
+                "skipped"
+              ]
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 500
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/workers/runs/:runId": {
+      "get": {
+        "operationId": "secu_worker_run_get",
+        "tags": [
+          "secu-workers"
+        ],
+        "summary": "Get a single worker run incl. exit_code, findings, error",
         "responses": {
           "200": {
             "description": "JSON response",
