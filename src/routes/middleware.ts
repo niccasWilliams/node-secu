@@ -41,7 +41,10 @@ function enforceFrontendChannel(req: Request, res: Response): boolean {
     const isHttps = req.secure || req.headers["x-forwarded-proto"] === "https";
 
     if (authStrategy.mode === "williams") {
-        if (isHttps) {
+        // Williams expects an HTTP internal channel (Railway private net or Cloudflare tunnel).
+        // Cloudflare sets x-forwarded-proto: https even though the tunnel socket is plain HTTP,
+        // so only req.secure (actual TLS on the socket) is a reliable signal here.
+        if (req.secure) {
             responseHandler(res, 403, "Forbidden: User routes only accessible via HTTP (internal network)");
             return false;
         }

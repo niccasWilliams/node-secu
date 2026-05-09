@@ -47,7 +47,7 @@ const registerIndividualRoutes = (app: express.Application) => {
 
     // Globale Intelligence: cross-engagement Pivots, Tech-Graph,
     // k-Hop-Neighborhood (Lazy-Mindmap-Loading). Pfad /intelligence/...
-    app.use("/", intelligenceRouter);
+    app.use("/intelligence", intelligenceRouter);
 
     // Cross-Engagement-Endpoints fürs FE-Intelligence-Dashboard:
     //   /graph/aggregate   /activity   /findings   /workers/runs

@@ -4,7 +4,7 @@
 // demselben Target erzeugt also keine Duplikate, sondern wird vom Service
 // als "deduped" zurückgemeldet.
 
-import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { database } from "@/db";
 import {
     engagements,
@@ -404,24 +404,24 @@ export const findingService = {
         const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
         const conditions: SQL[] = [];
         if (opts?.engagementIds && opts.engagementIds.length > 0) {
-            conditions.push(sql`${findings.engagementId} = ANY(${opts.engagementIds})`);
+            conditions.push(inArray(findings.engagementId, opts.engagementIds));
         }
         if (opts?.status && opts.status.length > 0) {
-            conditions.push(sql`${findings.status} = ANY(${opts.status})`);
+            conditions.push(inArray(findings.status, opts.status));
         }
         if (opts?.severity && opts.severity.length > 0) {
-            conditions.push(sql`${findings.severity} = ANY(${opts.severity})`);
+            conditions.push(inArray(findings.severity, opts.severity));
         }
         if (opts?.category && opts.category.length > 0) {
-            conditions.push(sql`${findings.category} = ANY(${opts.category})`);
+            conditions.push(inArray(findings.category, opts.category));
         }
         if (opts?.triageReason && opts.triageReason.length > 0) {
-            conditions.push(sql`${findings.triageReason} = ANY(${opts.triageReason})`);
+            conditions.push(inArray(findings.triageReason, opts.triageReason));
         }
         if (opts?.entityId) conditions.push(eq(findings.entityId, opts.entityId));
         if (opts?.discoveredSince) conditions.push(sql`${findings.discoveredAt} >= ${opts.discoveredSince}`);
         if (opts?.workerKey && opts.workerKey.length > 0) {
-            conditions.push(sql`${workerRuns.workerKey} = ANY(${opts.workerKey})`);
+            conditions.push(inArray(workerRuns.workerKey, opts.workerKey));
         }
 
         // Cursor (nur für discoveredAt-sort-desc — sortierte Spalten ändern Cursor-Semantik)
@@ -491,19 +491,19 @@ export const findingService = {
         // Sicherer: Aggregate ohne Cursor erneut bauen.
         const aggBaseConditions: SQL[] = [];
         if (opts?.engagementIds && opts.engagementIds.length > 0) {
-            aggBaseConditions.push(sql`${findings.engagementId} = ANY(${opts.engagementIds})`);
+            aggBaseConditions.push(inArray(findings.engagementId, opts.engagementIds));
         }
         if (opts?.status && opts.status.length > 0) {
-            aggBaseConditions.push(sql`${findings.status} = ANY(${opts.status})`);
+            aggBaseConditions.push(inArray(findings.status, opts.status));
         }
         if (opts?.severity && opts.severity.length > 0) {
-            aggBaseConditions.push(sql`${findings.severity} = ANY(${opts.severity})`);
+            aggBaseConditions.push(inArray(findings.severity, opts.severity));
         }
         if (opts?.category && opts.category.length > 0) {
-            aggBaseConditions.push(sql`${findings.category} = ANY(${opts.category})`);
+            aggBaseConditions.push(inArray(findings.category, opts.category));
         }
         if (opts?.triageReason && opts.triageReason.length > 0) {
-            aggBaseConditions.push(sql`${findings.triageReason} = ANY(${opts.triageReason})`);
+            aggBaseConditions.push(inArray(findings.triageReason, opts.triageReason));
         }
         if (opts?.entityId) aggBaseConditions.push(eq(findings.entityId, opts.entityId));
         if (opts?.discoveredSince) aggBaseConditions.push(sql`${findings.discoveredAt} >= ${opts.discoveredSince}`);
@@ -524,7 +524,7 @@ export const findingService = {
                   .where(
                       and(
                           aggWhere,
-                          sql`${workerRuns.workerKey} = ANY(${opts!.workerKey!})`,
+                          inArray(workerRuns.workerKey, opts!.workerKey!),
                       )!,
                   )
                   .groupBy(findings.severity, findings.status, findings.category)
