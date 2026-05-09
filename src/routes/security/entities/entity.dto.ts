@@ -73,6 +73,11 @@ export const entityParamsSchema = z.object({
     id: z.coerce.number().int().positive(),
 });
 
+// Sprint 2 (Backend-Report Klärung #5) — engagementId-Filter
+export const entityRelationshipsQuerySchema = z.object({
+    engagementId: z.coerce.number().int().positive().optional(),
+}).strict();
+
 export const entityRelationshipBodySchema = z
     .object({
         toEntityId: ui(z.number().int().positive(), {
@@ -151,6 +156,7 @@ export const entityPatchBodySchema = z.object({
 export type EntityCreateBody = z.infer<typeof entityCreateBodySchema>;
 export type EntityListQuery = z.infer<typeof entityListQuerySchema>;
 export type EntityRelationshipBody = z.infer<typeof entityRelationshipBodySchema>;
+export type EntityRelationshipsQuery = z.infer<typeof entityRelationshipsQuerySchema>;
 export type EntityTagBody = z.infer<typeof entityTagBodySchema>;
 export type EntityEnrichFullBody = z.infer<typeof entityEnrichFullBodySchema>;
 export type EntityPatchBody = z.infer<typeof entityPatchBodySchema>;

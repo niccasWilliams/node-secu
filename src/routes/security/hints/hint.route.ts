@@ -18,6 +18,7 @@ import {
     engagementHintByIdParamsSchema,
     engagementHintsParamsSchema,
     hintCreateBodySchema,
+    hintListQuerySchema,
     hintPatchBodySchema,
 } from "./hint.dto";
 import {
@@ -32,12 +33,12 @@ router.use(AccessControl.isAuthUser());
 
 c.get(
     "/engagements/:id/hints",
-    validate({ params: engagementHintsParamsSchema }),
+    validate({ params: engagementHintsParamsSchema, query: hintListQuerySchema }),
     contract({
         operationId: "secu_engagement_hints_list",
-        summary: "List operator hints attached to an engagement (Sprint 1, OSINT seed material)",
+        summary: "List operator hints attached to an engagement (filterbar nach status/slot, Sprint 2 Workflow-Lifecycle)",
         auth: { type: "frontend_bearer_http" },
-        request: { params: engagementHintsParamsSchema },
+        request: { params: engagementHintsParamsSchema, query: hintListQuerySchema },
         responses: [
             { kind: "json", status: 200, data: hintSchema.array() },
             { kind: "json", status: 404, data: noDataSchema },

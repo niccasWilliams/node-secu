@@ -278,6 +278,95 @@ export const engagementHintSlotEnum = pgEnum("secu_engagement_hint_slot", [
     "free_text",
 ]);
 
+/**
+ * Sprint 2 (Engagement-Detail-Page Backend-Report 2026-05-09 Block "Klärung
+ * Hint-Workflow-Status") — Lifecycle eines Hints:
+ *   - pending    → Default beim POST. Worker konsumieren alle pending-Hints.
+ *   - converted  → Operator (oder Auto-Worker) hat den Hint in eine echte
+ *                  Entity überführt (Email→email_address, Username→username, …).
+ *                  Hint bleibt sichtbar als Audit-Spur, wird aber NICHT mehr
+ *                  als Seed-Material an Worker gegeben.
+ *   - dismissed  → Operator hat den Hint als irrelevant markiert (z.B. Tippfehler
+ *                  im Customer-Meeting). Worker ignorieren ihn ab dann.
+ */
+export const engagementHintStatusEnum = pgEnum("secu_engagement_hint_status", [
+    "pending",
+    "converted",
+    "dismissed",
+]);
+
+/**
+ * Sprint 2 (Backend-Report Block 4) — Strukturierte Scope-Definition pro Engagement.
+ *
+ * Wird in `secu_engagements.scope` (jsonb) abgelegt. `summary` bleibt ein
+ * paralleles Markdown-Feld für freie Beschreibungen (`scopeSummary`-Spalte).
+ *
+ * Auth-Hook: `engagementService.checkInScope({engagementId, entity})`
+ * gleicht ein potenzielles Worker-Target gegen `targets[]` ab — der erste
+ * `out_of_scope`-Match dominiert eine `in_scope`-Regel (siehe matchTarget()).
+ *
+ * `testWindows` blockiert active_safe/active_intrusive Worker, wenn die
+ * aktuelle Server-Zeit außerhalb der konfigurierten Fenster liegt; passive
+ * Worker bleiben unbetroffen (passive Recon kostet nichts).
+ *
+ * `notificationContacts` wird vom boss-bridge gelesen — hier nur Datenhaltung.
+ */
+export type ScopeTargetKind =
+    | "domain"
+    | "subdomain_pattern"
+    | "ip"
+    | "ip_range"
+    | "url"
+    | "app"
+    | "email"
+    | "person"
+    | "other";
+
+export interface SecuEngagementScopeTarget {
+    /** Stable ID damit Frontend Targets per ID patchen kann (Server vergibt). */
+    id: string;
+    kind: ScopeTargetKind;
+    /** z.B. "example.com" | "*.example.com" | "10.0.0.0/24" | "https://api.example.com". */
+    value: string;
+    rule: "in_scope" | "out_of_scope";
+    notes: string | null;
+}
+
+export interface SecuEngagementScopeRule {
+    id: string;
+    text: string;
+    severity: "must" | "should" | "info";
+}
+
+export interface SecuEngagementScopeWindow {
+    id: string;
+    /** IANA-Zone, z.B. "Europe/Berlin". */
+    timezone: string;
+    /** 0=Sonntag … 6=Samstag (JS-Date-Konvention). */
+    daysOfWeek: number[];
+    /** "HH:mm" lokaler Wand-Zeit in der angegebenen timezone. */
+    fromTime: string;
+    untilTime: string;
+}
+
+export interface SecuEngagementScopeContact {
+    id: string;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}
+
+export interface SecuEngagementScope {
+    targets?: SecuEngagementScopeTarget[];
+    rulesOfEngagement?: SecuEngagementScopeRule[];
+    testWindows?: SecuEngagementScopeWindow[];
+    notificationContacts?: SecuEngagementScopeContact[];
+    /** ISO — wann hat der Operator zuletzt die Scope-Definition bestätigt. */
+    confirmedAt?: string | null;
+    confirmedByUserId?: number | null;
+}
+
 // ============================================================================
 // SPRINT 1.7 — INFRASTRUCTURE-PROVIDER REGISTRY (features.md §2.8)
 // ============================================================================
@@ -385,6 +474,19 @@ export const entityRelationships = pgTable("secu_entity_relationships", {
     /** "manual" | "recon_<tool>" | "osint_<source>" */
     source: varchar("source", { length: 64 }).notNull().default("manual"),
 
+    /**
+     * Sprint 2 (Backend-Report 2026-05-09 Block 3) — Provenance für Graph-Edges.
+     * `discoveredByWorkerRunId` zeigt auf den Worker-Run, der die Relation als
+     * erstes geschrieben hat. Auch nützlich für UI-Tooltip „warum existiert
+     * dieser Pfad?". Nullable: manuelle Edges via API setzen kein Worker-Run.
+     */
+    discoveredByWorkerRunId: integer("discovered_by_worker_run_id"),
+    /**
+     * Optional: PlaybookRun-ID — höhere Hierarchieebene als WorkerRun. Wenn
+     * gesetzt, kann FE die Relation in den Engagement-Activity-Stream einordnen.
+     */
+    discoveredByPlaybookRunId: integer("discovered_by_playbook_run_id"),
+
     firstObservedAt: timestamp("first_observed_at").notNull().defaultNow(),
     lastObservedAt: timestamp("last_observed_at").notNull().defaultNow(),
 }, (t) => ({
@@ -392,6 +494,7 @@ export const entityRelationships = pgTable("secu_entity_relationships", {
     toIdx: index("secu_rel_to_idx").on(t.toEntityId),
     kindIdx: index("secu_rel_kind_idx").on(t.kind),
     tripleUnique: uniqueIndex("secu_rel_triple_unique").on(t.fromEntityId, t.toEntityId, t.kind),
+    discoveredByWorkerIdx: index("secu_rel_discovered_by_worker_idx").on(t.discoveredByWorkerRunId),
 }));
 
 /**
@@ -420,6 +523,17 @@ export const engagements = pgTable("secu_engagements", {
     status: engagementStatusEnum("status").notNull().default("active"),
     ownerUserId: integer("owner_user_id").references(() => users.id, { onDelete: "set null" }),
     scopeSummary: text("scope_summary"),
+    /**
+     * Sprint 2 (Engagement-Detail-Page Backend-Report 2026-05-09 Block 4) —
+     * Strukturierte Scope-Definition. Backwards-kompatibel: bleibt `{}` wenn
+     * Operator nur `scopeSummary` (Markdown) nutzt. Form: SecuEngagementScope.
+     *
+     * Wirkt im Auth-Path: `engagementService.checkInScope()` prüft VOR dem
+     * worker-runner-Aufruf, ob das Target durch eine `out_of_scope`-Regel
+     * gedeckt ist — dort wird der Worker-Run mit `error="scope:out_of_scope"`
+     * geskipped.
+     */
+    scope: jsonb("scope").$type<SecuEngagementScope>().notNull().default({} as SecuEngagementScope),
     /** Phase 2.7 — Hard-Limit für OSINT-Requests pro Stunde, geprüft vom engagement-budget.service. */
     osintBudgetPerHour: integer("osint_budget_per_hour").notNull().default(1000),
     /**
@@ -475,12 +589,25 @@ export const engagementHints = pgTable("secu_engagement_hints", {
     value: text("value").notNull(),
     source: varchar("source", { length: 64 }),
     notes: text("notes"),
+    /**
+     * Sprint 2 (Backend-Report 2026-05-09 Klärungs-Block #4) — Lifecycle.
+     * Default 'pending' — Worker konsumieren nur pending-Hints. 'converted' wenn
+     * der Operator (oder ein Worker via convertHintToEntity) den Hint in eine
+     * echte Entity überführt hat; 'dismissed' wenn als irrelevant markiert.
+     */
+    status: engagementHintStatusEnum("status").notNull().default("pending"),
+    /** Wenn status='converted': die ID der Entity, in die der Hint überführt wurde. */
+    convertedToEntityId: integer("converted_to_entity_id").references(() => entities.id, { onDelete: "set null" }),
+    /** Wann hat ein Operator/Worker den Hint aus dem Lifecycle entfernt (converted/dismissed). */
+    closedAt: timestamp("closed_at"),
+    closedBy: integer("closed_by").references(() => users.id, { onDelete: "set null" }),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at"),
 }, (t) => ({
     engagementIdx: index("secu_engagement_hints_engagement_idx").on(t.engagementId),
     engagementSlotIdx: index("secu_engagement_hints_engagement_slot_idx").on(t.engagementId, t.slot),
+    statusIdx: index("secu_engagement_hints_status_idx").on(t.engagementId, t.status),
 }));
 
 /**
@@ -585,10 +712,20 @@ export const artifacts = pgTable("secu_artifacts", {
     redacted: boolean("redacted").notNull().default(false),
     capturedAt: timestamp("captured_at").notNull().defaultNow(),
     createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * Sprint 2 (Backend-Report 2026-05-09 Block 2) — Notes-Lifecycle:
+     * PATCH /engagements/:id/notes/:id setzt updatedAt + updatedBy.
+     * Greift für ALLE artifact-kinds (note + screenshot-recaption etc.) ohne
+     * extra Tabelle.
+     */
+    updatedAt: timestamp("updated_at"),
+    updatedBy: integer("updated_by").references(() => users.id, { onDelete: "set null" }),
 }, (t) => ({
     engagementIdx: index("secu_artifacts_engagement_idx").on(t.engagementId),
     entityIdx: index("secu_artifacts_entity_idx").on(t.entityId),
     kindIdx: index("secu_artifacts_kind_idx").on(t.kind),
+    /** Hot-Path für GET /engagements/:id/notes ?entityId=X — Note-Listing pro Engagement+Entity sortiert nach Zeit. */
+    engagementKindEntityIdx: index("secu_artifacts_engagement_kind_entity_idx").on(t.engagementId, t.kind, t.entityId, t.capturedAt),
 }));
 
 export const commandHistory = pgTable("secu_command_history", {
@@ -939,6 +1076,7 @@ export type EngagementEntityRole = (typeof engagementEntityRoleEnum.enumValues)[
 export type EngagementHint = typeof engagementHints.$inferSelect;
 export type NewEngagementHint = typeof engagementHints.$inferInsert;
 export type EngagementHintSlot = (typeof engagementHintSlotEnum.enumValues)[number];
+export type EngagementHintStatus = (typeof engagementHintStatusEnum.enumValues)[number];
 
 export type EntityAuthorization = typeof entityAuthorizations.$inferSelect;
 export type NewEntityAuthorization = typeof entityAuthorizations.$inferInsert;
@@ -1125,6 +1263,14 @@ export type EngagementGraph = {
             entityId: number;
             role: EngagementEntityRole | null;
             tags: string[];
+            /** Globaler Erst-Beobachtungs-Zeitpunkt der Entity (entities.first_seen_at, ISO). */
+            firstSeenAt: string;
+            /** Letzter Tatsachen-Touch (entities.last_seen_at, ISO). */
+            lastSeenAt: string;
+            /** Wann wurde die Entity in dieses spezifische Engagement gelinkt (engagement_entities.added_at, ISO). */
+            linkedAt: string;
+            /** Erste 8 Zeichen der Provenance-Hint, falls vorhanden — gibt FE einen ID-Pivot. */
+            provenance?: { speculative: boolean; confidence: number } | null;
         };
     }>;
     edges: Array<{
@@ -1134,6 +1280,17 @@ export type EngagementGraph = {
             target: string;
             kind: string;
             confidence: number;
+            /** Erst-Beobachtung der Relation (entity_relationships.first_observed_at, ISO). */
+            firstObservedAt: string;
+            /** Letzte Bestätigung (entity_relationships.last_observed_at, ISO). */
+            lastObservedAt: string;
+            /** "manual" | "recon_<tool>" | "osint_<source>". Cytoscape nutzt `source` für Node-Edge-Source — daher umbenannt. */
+            relationshipSource: string;
+            /** Provenance-Pointer für „warum existiert dieser Pfad?"-Tooltip. */
+            discoveredBy: {
+                kind: "worker_run" | "playbook_run" | "manual" | "signal_chain";
+                refId: number | null;
+            } | null;
         };
     }>;
 };

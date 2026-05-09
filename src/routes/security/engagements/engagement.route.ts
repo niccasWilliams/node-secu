@@ -11,15 +11,26 @@ import {
     engagementEntityParamsSchema,
     engagementListQuerySchema,
     engagementNoteBodySchema,
+    engagementNoteListQuerySchema,
+    engagementNoteParamsSchema,
+    engagementNotePatchBodySchema,
     engagementParamsSchema,
+    engagementScopePutBodySchema,
+    engagementSignalChainsQuerySchema,
     engagementUpdateBodySchema,
     grantAuthBodySchema,
     osintEmailEntityBodySchema,
+    osintPhoneEntityBodySchema,
+    osintSocialEntityBodySchema,
+    osintUsernameEntityBodySchema,
 } from "./engagement.dto";
 import {
     engagementCreateResponseSchema,
     engagementEntityLinkResponseSchema,
     engagementGraphSchema,
+    engagementNoteListResponseSchema,
+    engagementNoteSchema,
+    engagementScopeResponseSchema,
     engagementSchema,
     engagementListItemSchema,
     engagementWithGraphSchema,
@@ -30,7 +41,7 @@ import {
     idSchema,
     noDataSchema,
     osintEmailLinkResponseSchema,
-    signalChainLogSchema,
+    signalChainsPagedResponseSchema,
 } from "../security-response.dto";
 
 const c = createContractRouter("/engagements", { tags: ["secu-engagements"] });
@@ -171,6 +182,85 @@ c.post(
     engagementController.addNote.bind(engagementController),
 );
 
+// Sprint 2 (Backend-Report 2026-05-09 Block 2) — Notes lifecycle.
+c.get(
+    "/:id/notes",
+    validate({ params: engagementParamsSchema, query: engagementNoteListQuerySchema }),
+    contract({
+        operationId: "secu_engagement_notes_list",
+        summary: "List notes (artifact kind=note) of an engagement, optional entity filter + pagination",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema, query: engagementNoteListQuerySchema },
+        responses: [{ kind: "json", status: 200, data: engagementNoteListResponseSchema }],
+    }),
+    engagementController.listNotes.bind(engagementController),
+);
+
+c.patch(
+    "/:id/notes/:noteId",
+    validate({ params: engagementNoteParamsSchema, body: engagementNotePatchBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_engagement_note_update",
+        summary: "Patch an existing note (title/body/entity link)",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementNoteParamsSchema, body: engagementNotePatchBodySchema, bodyContentType: "application/json" },
+        responses: [
+            { kind: "json", status: 200, data: engagementNoteSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    engagementController.updateNote.bind(engagementController),
+);
+
+c.delete(
+    "/:id/notes/:noteId",
+    validate({ params: engagementNoteParamsSchema }),
+    contract({
+        operationId: "secu_engagement_note_delete",
+        summary: "Delete a note from an engagement",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementNoteParamsSchema },
+        responses: [
+            { kind: "json", status: 204, data: noDataSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    engagementController.deleteNote.bind(engagementController),
+);
+
+// Sprint 2 (Backend-Report 2026-05-09 Block 4) — Strukturierte Scope.
+c.get(
+    "/:id/scope",
+    validate({ params: engagementParamsSchema }),
+    contract({
+        operationId: "secu_engagement_scope_get",
+        summary: "Get structured scope definition (targets/RoE/test-windows/contacts)",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema },
+        responses: [
+            { kind: "json", status: 200, data: engagementScopeResponseSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    engagementController.getScope.bind(engagementController),
+);
+
+c.put(
+    "/:id/scope",
+    validate({ params: engagementParamsSchema, body: engagementScopePutBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_engagement_scope_put",
+        summary: "Replace structured scope definition. Server vergibt fehlende IDs, behält bestehende. summary aktualisiert parallel das Markdown-Feld scopeSummary.",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema, body: engagementScopePutBodySchema, bodyContentType: "application/json" },
+        responses: [
+            { kind: "json", status: 200, data: engagementScopeResponseSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    engagementController.putScope.bind(engagementController),
+);
+
 c.post(
     "/:id/authorizations",
     validate({ params: engagementParamsSchema, body: grantAuthBodySchema, bodyContentType: "application/json" }),
@@ -230,18 +320,57 @@ c.post(
     engagementController.linkOsintEmailEntity.bind(engagementController),
 );
 
-// Phase 2.7 — Signal-Chain-Log-Liste pro Engagement.
+// Phase 2.7 + Sprint 2 — Signal-Chain-Log-Liste pro Engagement (paginiert).
 c.get(
     "/:id/signal-chains",
-    validate({ params: engagementParamsSchema }),
+    validate({ params: engagementParamsSchema, query: engagementSignalChainsQuerySchema }),
     contract({
         operationId: "secu_engagement_signal_chains_list",
-        summary: "Phase 2.7 — Listet OSINT-Signal-Chain-Logs (manuelle person_full-Trigger + Auto-Chains)",
+        summary: "Listet OSINT-Signal-Chain-Logs (paginiert, neueste zuerst)",
         auth: { type: "frontend_bearer_http" },
-        request: { params: engagementParamsSchema },
-        responses: [{ kind: "json", status: 200, data: signalChainLogSchema.array() }],
+        request: { params: engagementParamsSchema, query: engagementSignalChainsQuerySchema },
+        responses: [{ kind: "json", status: 200, data: signalChainsPagedResponseSchema }],
     }),
     engagementController.listSignalChains.bind(engagementController),
+);
+
+// Sprint 2 (Backend-Report 2026-05-09 Block 5) — Alias-Linking-Endpoints.
+// Symmetrisch zu /entities/email — Auto-Chain greift via entity.created.
+c.post(
+    "/:id/entities/username",
+    validate({ params: engagementParamsSchema, body: osintUsernameEntityBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_engagement_osint_username_link",
+        summary: "Lege eine username-Entity an, optional an Person hängen, OSINT-Auto-Chain greift",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema, body: osintUsernameEntityBodySchema, bodyContentType: "application/json" },
+        responses: [{ kind: "json", status: 201, data: osintEmailLinkResponseSchema }],
+    }),
+    engagementController.linkOsintUsernameEntity.bind(engagementController),
+);
+c.post(
+    "/:id/entities/phone",
+    validate({ params: engagementParamsSchema, body: osintPhoneEntityBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_engagement_osint_phone_link",
+        summary: "Lege eine phone_number-Entity an, optional an Person hängen",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema, body: osintPhoneEntityBodySchema, bodyContentType: "application/json" },
+        responses: [{ kind: "json", status: 201, data: osintEmailLinkResponseSchema }],
+    }),
+    engagementController.linkOsintPhoneEntity.bind(engagementController),
+);
+c.post(
+    "/:id/entities/social",
+    validate({ params: engagementParamsSchema, body: osintSocialEntityBodySchema, bodyContentType: "application/json" }),
+    contract({
+        operationId: "secu_engagement_osint_social_link",
+        summary: "Lege eine social_account-Entity an, optional an Person hängen",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: engagementParamsSchema, body: osintSocialEntityBodySchema, bodyContentType: "application/json" },
+        responses: [{ kind: "json", status: 201, data: osintEmailLinkResponseSchema }],
+    }),
+    engagementController.linkOsintSocialEntity.bind(engagementController),
 );
 
 export default router;

@@ -51,16 +51,35 @@ export const hintCreateBodySchema = z
     })
     .strict();
 
+export const hintStatus = z.enum(["pending", "converted", "dismissed"]);
+ui(hintStatus, {
+    label: "Status",
+    widget: "select",
+    group: "Hint",
+    options: [
+        { value: "pending", label: "Offen", description: "Wird von Workern als Seed konsumiert", color: "info" },
+        { value: "converted", label: "Übernommen", description: "Wurde in eine Entity überführt", color: "success" },
+        { value: "dismissed", label: "Verworfen", description: "Vom Operator als irrelevant markiert", color: "neutral" },
+    ],
+});
+
 export const hintPatchBodySchema = z
     .object({
         value: ui(z.string().min(1).max(1024).optional(), { label: "Wert", widget: "text", group: "Hint" }),
         source: ui(z.string().max(64).nullable().optional(), { label: "Quelle", widget: "text", group: "Hint" }),
         notes: ui(z.string().max(2048).nullable().optional(), { label: "Notiz", widget: "textarea", group: "Hint" }),
+        status: hintStatus.optional(),
+        convertedToEntityId: z.number().int().positive().nullable().optional(),
     })
     .strict()
     .refine((v) => Object.keys(v).length > 0, {
-        message: "At least one of value/source/notes is required",
+        message: "At least one of value/source/notes/status/convertedToEntityId is required",
     });
+
+export const hintListQuerySchema = z.object({
+    status: hintStatus.optional(),
+    slot: hintSlot.optional(),
+}).strict();
 
 export const engagementHintsParamsSchema = z.object({
     id: z.coerce.number().int().positive(),
@@ -73,3 +92,4 @@ export const engagementHintByIdParamsSchema = z.object({
 
 export type HintCreateBody = z.infer<typeof hintCreateBodySchema>;
 export type HintPatchBody = z.infer<typeof hintPatchBodySchema>;
+export type HintListQuery = z.infer<typeof hintListQuerySchema>;

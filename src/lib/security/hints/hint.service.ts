@@ -13,7 +13,9 @@ import {
     engagementHints,
     type EngagementHint,
     type EngagementHintSlot,
+    type EngagementHintStatus,
 } from "@/db/individual/individual-schema";
+import { secuEventBus } from "../rules/event-bus";
 
 export type HintInput = {
     slot: EngagementHintSlot;
@@ -26,6 +28,9 @@ export type HintPatch = {
     value?: string;
     source?: string | null;
     notes?: string | null;
+    /** Sprint 2 (Backend-Report Klärung #4) — Status-Workflow. */
+    status?: EngagementHintStatus;
+    convertedToEntityId?: number | null;
 };
 
 /** Worker-facing Snapshot: alle Hints eines Engagements gruppiert nach Slot. */
@@ -94,17 +99,46 @@ export const hintService = {
         return database.insert(engagementHints).values(rows).returning();
     },
 
-    async patch(hintId: number, patch: HintPatch): Promise<EngagementHint | null> {
+    async patch(hintId: number, patch: HintPatch, actorUserId: number | null = null): Promise<EngagementHint | null> {
+        const previous = await this.getById(hintId);
+        if (!previous) return null;
+
         const update: Partial<typeof engagementHints.$inferInsert> = { updatedAt: new Date() };
         if (patch.value !== undefined) update.value = patch.value.trim();
         if (patch.source !== undefined) update.source = patch.source?.trim() || null;
         if (patch.notes !== undefined) update.notes = patch.notes?.trim() || null;
+        if (patch.status !== undefined) {
+            update.status = patch.status;
+            if (patch.status === "converted" || patch.status === "dismissed") {
+                update.closedAt = new Date();
+                update.closedBy = actorUserId;
+            } else {
+                update.closedAt = null;
+                update.closedBy = null;
+            }
+        }
+        if (patch.convertedToEntityId !== undefined) {
+            update.convertedToEntityId = patch.convertedToEntityId;
+        }
 
         const [updated] = await database
             .update(engagementHints)
             .set(update)
             .where(eq(engagementHints.id, hintId))
             .returning();
+
+        if (updated && patch.status && previous.status !== updated.status) {
+            secuEventBus.publish({
+                type: "hint.status_changed",
+                hintId: updated.id,
+                engagementId: updated.engagementId,
+                slot: updated.slot,
+                previousStatus: previous.status,
+                newStatus: updated.status,
+                convertedToEntityId: updated.convertedToEntityId ?? null,
+                actorUserId,
+            });
+        }
         return updated ?? null;
     },
 
@@ -123,7 +157,18 @@ export const hintService = {
      * Klassifizierung (organic vs hint_seeded, features.md §2.7) nicht haltbar.
      */
     async getBundle(engagementId: number): Promise<EngagementHintBundle> {
-        const rows = await this.list(engagementId);
+        // Sprint 2 — Worker-Bundle berücksichtigt nur 'pending' Hints. Converted/
+        // dismissed Hints bleiben als Audit-Spur sichtbar in der UI-Liste, sollen
+        // aber NICHT als Seed-Material an Worker gehen (sonst doppelte Discovery
+        // oder Reanimation eines abgelehnten Hints).
+        const rows = await database
+            .select()
+            .from(engagementHints)
+            .where(and(
+                eq(engagementHints.engagementId, engagementId),
+                eq(engagementHints.status, "pending"),
+            ))
+            .orderBy(asc(engagementHints.slot), asc(engagementHints.createdAt));
         const bundle = emptyBundle();
         for (const row of rows) {
             bundle[row.slot].push(row);

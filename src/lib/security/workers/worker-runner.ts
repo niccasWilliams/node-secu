@@ -22,6 +22,8 @@ import { entityService, triggerCrossEngagementHit } from "../entities/entity.ser
 import { relationshipService } from "../entities/relationship.service";
 import { engagementBudgetService, isOsintWorker } from "../osint/engagement-budget.service";
 import { findingService } from "../findings/finding.service";
+import { secuEventBus } from "../rules/event-bus";
+import { engagementService } from "../engagements/engagement.service";
 import { techFingerprintService } from "../tech/tech-fingerprint.service";
 import type {
     DiscoveredEntityDraft,
@@ -95,6 +97,19 @@ export async function executeWorker(input: ExecuteWorkerInput): Promise<ExecuteW
                 error: `authorization_denied:${decision.reason}`,
             })
             .where(eq(workerRuns.id, wrun.id));
+        publishWorkerRunFinished({
+            workerRunId: wrun.id,
+            engagementId: engagement.id,
+            playbookRunId,
+            workerKey: worker.jobKey,
+            entityId: target.id as number,
+            status: "skipped",
+            findingsCreated: 0,
+            findingsDeduped: 0,
+            discoveredEntities: 0,
+            durationMs: 0,
+            error: `authorization_denied:${decision.reason}`,
+        });
         return {
             workerRunId: wrun.id,
             status: "skipped",
@@ -108,6 +123,63 @@ export async function executeWorker(input: ExecuteWorkerInput): Promise<ExecuteW
         };
     }
 
+    // 1b) Sprint 2 (Backend-Report Block 4) — Strukturierter-Scope-Gate.
+    // Out-of-scope-Targets blockieren active_safe + active_intrusive Worker
+    // schon hier. Passive Worker bleiben unbetroffen — passive Recon kostet
+    // nichts und muss auch out-of-scope-Hosts treffen können (Cross-Domain-
+    // Pivots für Owner-Discovery).
+    if (worker.requiredScope !== "passive_only") {
+        const scopeCheck = await engagementService.checkInScope({
+            engagementId: engagement.id,
+            entityId: target.id as number,
+            requiredScope: worker.requiredScope,
+        });
+        if (!scopeCheck.allowed) {
+            await database
+                .update(workerRuns)
+                .set({
+                    status: "skipped",
+                    finishedAt: new Date(),
+                    error: `scope:${scopeCheck.reason}`,
+                })
+                .where(eq(workerRuns.id, wrun.id));
+            publishWorkerRunFinished({
+                workerRunId: wrun.id,
+                engagementId: engagement.id,
+                playbookRunId,
+                workerKey: worker.jobKey,
+                entityId: target.id as number,
+                status: "skipped",
+                findingsCreated: 0,
+                findingsDeduped: 0,
+                discoveredEntities: 0,
+                durationMs: 0,
+                error: `scope:${scopeCheck.reason}`,
+            });
+            return {
+                workerRunId: wrun.id,
+                status: "skipped",
+                findingsCreated: 0,
+                findingsDeduped: 0,
+                techCount: 0,
+                newDiscoveredEntities: 0,
+                discoveredEntityIds: [],
+                durationMs: 0,
+                error: `scope:${scopeCheck.reason}`,
+            };
+        }
+    }
+
+    // Worker hat alle Gates passiert → started-Event publishen.
+    secuEventBus.publish({
+        type: "worker_run.started",
+        workerRunId: wrun.id,
+        engagementId: engagement.id,
+        playbookRunId,
+        workerKey: worker.jobKey,
+        entityId: target.id as number,
+    });
+
     // 2) OSINT-Budget-Gate
     if (isOsintWorker(worker.jobKey)) {
         const budget = await engagementBudgetService.check(engagement.id);
@@ -120,6 +192,19 @@ export async function executeWorker(input: ExecuteWorkerInput): Promise<ExecuteW
                     error: budget.reason ?? "engagement_osint_budget_exceeded",
                 })
                 .where(eq(workerRuns.id, wrun.id));
+            publishWorkerRunFinished({
+                workerRunId: wrun.id,
+                engagementId: engagement.id,
+                playbookRunId,
+                workerKey: worker.jobKey,
+                entityId: target.id as number,
+                status: "skipped",
+                findingsCreated: 0,
+                findingsDeduped: 0,
+                discoveredEntities: 0,
+                durationMs: 0,
+                error: budget.reason ?? "engagement_osint_budget_exceeded",
+            });
             return {
                 workerRunId: wrun.id,
                 status: "skipped",
@@ -234,6 +319,20 @@ export async function executeWorker(input: ExecuteWorkerInput): Promise<ExecuteW
         })
         .where(eq(workerRuns.id, wrun.id));
 
+    publishWorkerRunFinished({
+        workerRunId: wrun.id,
+        engagementId: engagement.id,
+        playbookRunId,
+        workerKey: worker.jobKey,
+        entityId: target.id as number,
+        status: effectiveSuccess ? "completed" : "failed",
+        findingsCreated,
+        findingsDeduped,
+        discoveredEntities: newlyLinkedCount,
+        durationMs: result.durationMs,
+        error: effectiveError,
+    });
+
     return {
         workerRunId: wrun.id,
         status: effectiveSuccess ? "completed" : "failed",
@@ -247,6 +346,36 @@ export async function executeWorker(input: ExecuteWorkerInput): Promise<ExecuteW
         rawOutput: result.rawOutput,
         exitCode: result.exitCode ?? null,
     };
+}
+
+/** Lokaler Helper, damit alle Skip-/Done-Pfade dasselbe Event-Shape bauen. */
+function publishWorkerRunFinished(input: {
+    workerRunId: number;
+    engagementId: number;
+    playbookRunId: number | null;
+    workerKey: string;
+    entityId: number | null;
+    status: "completed" | "failed" | "skipped";
+    findingsCreated: number;
+    findingsDeduped: number;
+    discoveredEntities: number;
+    durationMs: number;
+    error: string | null;
+}): void {
+    secuEventBus.publish({
+        type: "worker_run.finished",
+        workerRunId: input.workerRunId,
+        engagementId: input.engagementId,
+        playbookRunId: input.playbookRunId,
+        workerKey: input.workerKey,
+        entityId: input.entityId,
+        status: input.status,
+        findingsCreated: input.findingsCreated,
+        findingsDeduped: input.findingsDeduped,
+        discoveredEntities: input.discoveredEntities,
+        durationMs: input.durationMs,
+        error: input.error,
+    });
 }
 
 async function runWorkerSafely(worker: SecurityWorker, ctx: WorkerContext): Promise<WorkerResult> {
@@ -371,6 +500,8 @@ async function persistDiscoveredEntities(input: {
                         kind: rel.kind,
                         confidence: rel.confidence ?? 90,
                         source: draft.source ?? "recon_unknown",
+                        discoveredByWorkerRunId: input.workerRunId ?? null,
+                        discoveredByPlaybookRunId: input.playbookRunId ?? null,
                     });
                 } catch (err) {
                     console.error("[worker-runner] relationship upsert failed", {

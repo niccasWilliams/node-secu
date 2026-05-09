@@ -8,6 +8,7 @@ import {
     entityEnrichFullBodySchema,
     entityListQuerySchema,
     entityParamsSchema,
+    entityRelationshipsQuerySchema,
     entityPatchBodySchema,
     entityRelationshipBodySchema,
     entityTagBodySchema,
@@ -76,12 +77,12 @@ c.get(
 
 c.get(
     "/:id/relationships",
-    validate({ params: entityParamsSchema }),
+    validate({ params: entityParamsSchema, query: entityRelationshipsQuerySchema }),
     contract({
         operationId: "secu_entity_relationships_list",
-        summary: "List relationships incident to an entity",
+        summary: "List relationships incident to an entity (optional engagementId-Filter, Sprint 2)",
         auth: { type: "frontend_bearer_http" },
-        request: { params: entityParamsSchema },
+        request: { params: entityParamsSchema, query: entityRelationshipsQuerySchema },
         responses: [{ kind: "json", status: 200, data: entityRelationshipWithEntitiesSchema.array() }],
     }),
     entityController.listRelationships.bind(entityController),

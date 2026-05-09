@@ -85,7 +85,10 @@ class EntityController {
     async listRelationships(req: Request, res: Response) {
         try {
             const { id } = v<{ id: number }>(req, "params");
-            const rows = await relationshipService.listForEntity(id);
+            const q = v<{ engagementId?: number }>(req, "query");
+            const rows = await relationshipService.listForEntity(id, {
+                engagementId: q.engagementId ?? null,
+            });
             return responseHandler(res, 200, undefined, rows);
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");

@@ -1,11 +1,14 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T20:46:59.190Z
+// Generated at: 2026-05-09T01:32:39.222Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEngagementHintsListParams = {
   id: number;
 };
-export type SecuEngagementHintsListQuery = undefined;
+export type SecuEngagementHintsListQuery = {
+  status?: "pending" | "converted" | "dismissed";
+  slot?: "owner_name" | "owner_city" | "owner_company" | "owner_known_email" | "owner_known_username" | "owner_alt_domain" | "industry" | "free_text";
+};
 export type SecuEngagementHintsListBody = undefined;
 export type SecuEngagementHintsListResponseData = Array<{
   id: number;
@@ -14,6 +17,10 @@ export type SecuEngagementHintsListResponseData = Array<{
   value: string;
   source: string | null;
   notes: string | null;
+  status: "pending" | "converted" | "dismissed";
+  convertedToEntityId: number | null;
+  closedAt: string | null;
+  closedBy: number | null;
   createdBy: number | null;
   createdAt: string;
   updatedAt: string | null;
@@ -39,6 +46,10 @@ export type SecuEngagementHintsCreateResponseData = Array<{
   value: string;
   source: string | null;
   notes: string | null;
+  status: "pending" | "converted" | "dismissed";
+  convertedToEntityId: number | null;
+  closedAt: string | null;
+  closedBy: number | null;
   createdBy: number | null;
   createdAt: string;
   updatedAt: string | null;
@@ -54,6 +65,8 @@ export type SecuEngagementHintsPatchBody = {
   value?: string;
   source?: string | null;
   notes?: string | null;
+  status?: "pending" | "converted" | "dismissed";
+  convertedToEntityId?: number | null;
 };
 export type SecuEngagementHintsPatchResponseData = {
   id: number;
@@ -62,6 +75,10 @@ export type SecuEngagementHintsPatchResponseData = {
   value: string;
   source: string | null;
   notes: string | null;
+  status: "pending" | "converted" | "dismissed";
+  convertedToEntityId: number | null;
+  closedAt: string | null;
+  closedBy: number | null;
   createdBy: number | null;
   createdAt: string;
   updatedAt: string | null;
@@ -84,8 +101,8 @@ export const apiRoutes_secu_hints = {
     auth: {"type":"frontend_bearer_http"},
     meta: {
       tags: ["secu-hints"],
-      summary: "List operator hints attached to an engagement (Sprint 1, OSINT seed material)",
-      validated: {"params":true,"query":false,"body":false},
+      summary: "List operator hints attached to an engagement (filterbar nach status/slot, Sprint 2 Workflow-Lifecycle)",
+      validated: {"params":true,"query":true,"body":false},
     },
     types: null as unknown as {
       params: SecuEngagementHintsListParams;

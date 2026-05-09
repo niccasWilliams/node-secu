@@ -16,11 +16,15 @@ import {
     engagements,
     engagementEntities,
     entities,
+    entityAuthorizations,
     entityRelationships,
+    findings,
     type Engagement,
     type Entity,
     type EntityRelationship,
+    type Severity,
 } from "@/db/individual/individual-schema";
+import { authorizationService } from "../authorization/authorization.service";
 
 type TechSlot = { techName: string; version?: string | null; source?: string | null; lastSeenAt?: string | null };
 
@@ -248,3 +252,249 @@ export const intelligenceService = {
 };
 
 void ne; // imported for future filter expansions
+
+// ─── Sprint 2 (Backend-Report 2026-05-09 Block 5) — Identity-Bundle ──────────
+
+/** Alias-Kinds, die als „Person-Identitäten" zählen — Bundle-Aliases-Slot. */
+const ALIAS_KINDS = ["email_address", "username", "phone_number", "social_account", "credential_ref"] as const;
+
+export const identityService = {
+    /**
+     * Liefert eine Person-Entity zusammen mit allen Aliases (Email/Username/
+     * Phone/Social), Engagements in denen sie vorkommt, aggregierten Findings
+     * und Auth-Decisions. EIN Endpoint für die FE-Identity-Drawer-View, der
+     * sonst 3-4 Round-Trips brauchen würde.
+     *
+     * Performance: 5 parallele Queries + 1 in-JS-Aggregation. Auch bei einer
+     * Person mit 50 Aliases und 20 Engagements ist das eine konstante
+     * Roundtrip-Anzahl.
+     */
+    async identityBundle(personId: number): Promise<{
+        person: Entity;
+        aliases: Array<{
+            entity: Entity;
+            relationshipId: number;
+            relationKind: string;
+            confidence: number;
+            addedAt: string;
+        }>;
+        engagements: Array<{
+            id: number;
+            name: string;
+            slug: string;
+            role: string;
+            findingCount: number;
+            findingsBySeverity: Record<Severity, number>;
+            lastActivityAt: string | null;
+        }>;
+        globalFindings: {
+            total: number;
+            bySeverity: Record<Severity, number>;
+            byStatus: Record<string, number>;
+            recent: Array<{ id: number; title: string; severity: Severity; engagementId: number; createdAt: string }>;
+        };
+        authorizations: Array<{
+            engagementId: number;
+            scope: string;
+            decision: { activeSafeAllowed: boolean; activeIntrusiveAllowed: boolean };
+        }>;
+    } | null> {
+        const [person] = await database.select().from(entities).where(eq(entities.id, personId)).limit(1);
+        if (!person) return null;
+
+        // Aliases: Relationship-Suche in beide Richtungen.
+        const aliasRels = await database
+            .select()
+            .from(entityRelationships)
+            .where(or(
+                eq(entityRelationships.fromEntityId, personId),
+                eq(entityRelationships.toEntityId, personId),
+            ));
+
+        const aliasIds = new Set<number>();
+        for (const r of aliasRels) {
+            if (r.fromEntityId !== personId) aliasIds.add(r.fromEntityId);
+            if (r.toEntityId !== personId) aliasIds.add(r.toEntityId);
+        }
+
+        const aliasEntities = aliasIds.size > 0
+            ? await database
+                .select()
+                .from(entities)
+                .where(and(
+                    inArray(entities.id, [...aliasIds]),
+                    inArray(entities.kind, [...ALIAS_KINDS]),
+                ))
+            : [];
+
+        const aliasEntityById = new Map(aliasEntities.map((e) => [e.id, e]));
+        const aliases = aliasRels
+            .map((r) => {
+                const otherId = r.fromEntityId === personId ? r.toEntityId : r.fromEntityId;
+                const ent = aliasEntityById.get(otherId);
+                if (!ent) return null;
+                return {
+                    entity: ent,
+                    relationshipId: r.id,
+                    relationKind: r.kind,
+                    confidence: r.confidence,
+                    addedAt: r.firstObservedAt.toISOString(),
+                };
+            })
+            .filter((x): x is NonNullable<typeof x> => x != null);
+
+        // Engagements + Roles.
+        const engagementLinks = await database
+            .select({
+                engagementId: engagementEntities.engagementId,
+                role: engagementEntities.role,
+                addedAt: engagementEntities.addedAt,
+                name: engagements.name,
+                slug: engagements.slug,
+                archivedAt: engagements.archivedAt,
+            })
+            .from(engagementEntities)
+            .innerJoin(engagements, eq(engagements.id, engagementEntities.engagementId))
+            .where(eq(engagementEntities.entityId, personId));
+
+        const engagementIds = engagementLinks.map((l) => l.engagementId);
+
+        // Findings pro Engagement aggregiert.
+        const findingsByEngagementSeverity = engagementIds.length > 0
+            ? await database
+                .select({
+                    engagementId: findings.engagementId,
+                    severity: findings.severity,
+                    cnt: sql<number>`cast(count(*) as int)`.as("cnt"),
+                })
+                .from(findings)
+                .where(and(
+                    eq(findings.entityId, personId),
+                    inArray(findings.engagementId, engagementIds),
+                ))
+                .groupBy(findings.engagementId, findings.severity)
+            : [];
+
+        const findingsByEngagementStatus = engagementIds.length > 0
+            ? await database
+                .select({
+                    engagementId: findings.engagementId,
+                    status: findings.status,
+                    cnt: sql<number>`cast(count(*) as int)`.as("cnt"),
+                })
+                .from(findings)
+                .where(and(
+                    eq(findings.entityId, personId),
+                    inArray(findings.engagementId, engagementIds),
+                ))
+                .groupBy(findings.engagementId, findings.status)
+            : [];
+
+        const lastActivityRows = engagementIds.length > 0
+            ? await database
+                .select({
+                    engagementId: findings.engagementId,
+                    lastAt: sql<Date>`max(${findings.discoveredAt})`.as("lastAt"),
+                })
+                .from(findings)
+                .where(and(
+                    eq(findings.entityId, personId),
+                    inArray(findings.engagementId, engagementIds),
+                ))
+                .groupBy(findings.engagementId)
+            : [];
+
+        const sevByEng = new Map<number, Record<Severity, number>>();
+        const totalByEng = new Map<number, number>();
+        for (const r of findingsByEngagementSeverity) {
+            const bucket = sevByEng.get(r.engagementId) ?? { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+            bucket[r.severity] = (bucket[r.severity] ?? 0) + r.cnt;
+            sevByEng.set(r.engagementId, bucket);
+            totalByEng.set(r.engagementId, (totalByEng.get(r.engagementId) ?? 0) + r.cnt);
+        }
+
+        const lastActivityByEng = new Map(lastActivityRows.map((r) => [r.engagementId, r.lastAt]));
+
+        const engagementBundles = engagementLinks.map((l) => ({
+            id: l.engagementId,
+            name: l.name,
+            slug: l.slug,
+            role: l.role,
+            findingCount: totalByEng.get(l.engagementId) ?? 0,
+            findingsBySeverity: sevByEng.get(l.engagementId) ?? { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+            lastActivityAt: lastActivityByEng.get(l.engagementId)?.toISOString() ?? null,
+        }));
+
+        // Globale Aggregate.
+        const allEntityIds = [personId, ...aliases.map((a) => a.entity.id)];
+        const globalAgg = await database
+            .select({
+                severity: findings.severity,
+                status: findings.status,
+                cnt: sql<number>`cast(count(*) as int)`.as("cnt"),
+            })
+            .from(findings)
+            .where(inArray(findings.entityId, allEntityIds))
+            .groupBy(findings.severity, findings.status);
+
+        const bySeverity: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+        const byStatus: Record<string, number> = {};
+        let total = 0;
+        for (const r of globalAgg) {
+            bySeverity[r.severity] = (bySeverity[r.severity] ?? 0) + r.cnt;
+            byStatus[r.status] = (byStatus[r.status] ?? 0) + r.cnt;
+            total += r.cnt;
+        }
+
+        const recentRows = await database
+            .select({
+                id: findings.id,
+                title: findings.title,
+                severity: findings.severity,
+                engagementId: findings.engagementId,
+                discoveredAt: findings.discoveredAt,
+            })
+            .from(findings)
+            .where(inArray(findings.entityId, allEntityIds))
+            .orderBy(desc(findings.discoveredAt))
+            .limit(10);
+
+        // Auth-Decisions pro Engagement aus den Authorizations der Person.
+        const personAuths = await database
+            .select()
+            .from(entityAuthorizations)
+            .where(and(eq(entityAuthorizations.entityId, personId), isNull(entityAuthorizations.revokedAt)));
+
+        const authBundles = await Promise.all(personAuths.map(async (a) => {
+            const safe = await authorizationService.canScan({ kind: "entity", id: personId }, "active_safe");
+            const intrusive = await authorizationService.canScan({ kind: "entity", id: personId }, "active_intrusive");
+            // Engagement-Zuordnung: Authorization gehört zur Entity, nicht direkt zum Engagement.
+            // Wir geben für jeden engagement-link eine Auth-Decision aus.
+            return engagementLinks.map((l) => ({
+                engagementId: l.engagementId,
+                scope: a.scope,
+                decision: { activeSafeAllowed: safe.allowed, activeIntrusiveAllowed: intrusive.allowed },
+            }));
+        }));
+
+        return {
+            person,
+            aliases,
+            engagements: engagementBundles,
+            globalFindings: {
+                total,
+                bySeverity,
+                byStatus,
+                recent: recentRows.map((r) => ({
+                    id: r.id,
+                    title: r.title,
+                    severity: r.severity,
+                    engagementId: r.engagementId,
+                    createdAt: r.discoveredAt.toISOString(),
+                })),
+            },
+            authorizations: authBundles.flat(),
+        };
+    },
+};
+

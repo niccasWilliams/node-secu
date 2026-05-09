@@ -5,7 +5,7 @@ import { engagementService } from "@/lib/security/engagements/engagement.service
 import { hintService } from "@/lib/security/hints/hint.service";
 import { getUserIdFromRequest } from "@/util/utils";
 import type { ValidatedRequest } from "@/api-contract/contract.middleware";
-import type { HintCreateBody, HintPatchBody } from "./hint.dto";
+import type { HintCreateBody, HintListQuery, HintPatchBody } from "./hint.dto";
 
 function v<T>(req: Request, key: "params" | "query" | "body"): T {
     return ((req as ValidatedRequest).validated?.[key] ?? {}) as T;
@@ -15,10 +15,14 @@ class HintController {
     async list(req: Request, res: Response) {
         try {
             const { id } = v<{ id: number }>(req, "params");
+            const q = v<HintListQuery>(req, "query");
             const engagement = await engagementService.getById(id);
             if (!engagement) return responseHandler(res, 404, "Engagement not found");
 
-            const hints = await hintService.list(id);
+            const all = await hintService.list(id);
+            const hints = all
+                .filter((h) => !q.status || h.status === q.status)
+                .filter((h) => !q.slot || h.slot === q.slot);
             return responseHandler(res, 200, undefined, hints);
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");
@@ -63,7 +67,7 @@ class HintController {
             const existing = await hintService.getInEngagement(id, hintId);
             if (!existing) return responseHandler(res, 404, "Hint not found in this engagement");
 
-            const updated = await hintService.patch(hintId, body);
+            const updated = await hintService.patch(hintId, body, userId);
 
             await auditLogService.log({
                 action: "engagement.hint_update",

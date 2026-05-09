@@ -95,6 +95,15 @@ export const osintPersonFullService = {
             })
             .returning();
 
+        secuEventBus.publish({
+            type: "signal_chain.started",
+            chainId: logRow.id,
+            engagementId: input.engagementId,
+            rootEntityId: root.id,
+            triggeredBy: "osint_person_full",
+            stepCount: initialChain.length,
+        });
+
         return {
             signalChainLogId: logRow.id,
             rootEntityId: root.id,
@@ -148,7 +157,8 @@ async function collectTargets(root: Entity): Promise<Array<{ id: number; kind: s
 function ensureListener(): void {
     if (listenerRegistered) return;
     listenerRegistered = true;
-    secuEventBus.on("playbook_run.completed", async (event) => {
+    secuEventBus.on("playbook_run.completed", (async (raw: unknown) => {
+        const event = raw as { runId: number; status: string; findingsCreated: number; discoveredEntities: number };
         try {
             // Pragmatisch: lade alle offenen chain-logs (typischerweise wenige aktiv
             // gleichzeitig), filter in JS. JSONB-Path-Query wäre eleganter, ist aber
@@ -182,9 +192,31 @@ function ensureListener(): void {
                         finishedAt: allDone ? new Date() : null,
                     })
                     .where(eq(secuSignalChainLog.id, row.id));
+
+                // Step-Update Event — FE rendert pulsierenden Pfad neu.
+                const newStep = updated.find((s) => s.playbookRunId === event.runId);
+                secuEventBus.publish({
+                    type: "signal_chain.step_added",
+                    chainId: row.id,
+                    engagementId: row.engagementId,
+                    rootEntityId: row.rootEntityId,
+                    triggeredBy: row.triggeredBy,
+                    stepCount: updated.length,
+                    newStep: newStep,
+                });
+                if (allDone) {
+                    secuEventBus.publish({
+                        type: "signal_chain.finished",
+                        chainId: row.id,
+                        engagementId: row.engagementId,
+                        rootEntityId: row.rootEntityId,
+                        triggeredBy: row.triggeredBy,
+                        stepCount: updated.length,
+                    });
+                }
             }
         } catch (err) {
             console.warn(`[osint_person_full] chain-log update failed: ${(err as Error).message}`);
         }
-    });
+    }) as never);
 }

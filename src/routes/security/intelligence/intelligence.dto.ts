@@ -93,3 +93,8 @@ export type NeighborhoodQuery = z.infer<typeof neighborhoodQuerySchema>;
 export type CrossEngagementHitsQuery = z.infer<typeof crossEngagementHitsQuerySchema>;
 export type TechGraphQuery = z.infer<typeof techGraphQuerySchema>;
 export type TechUsagesQuery = z.infer<typeof techUsagesQuerySchema>;
+
+// Sprint 2 (Backend-Report Block 5) — Identity-Bundle Endpoint.
+export const identityBundleParamsSchema = z.object({
+    personId: z.coerce.number().int().positive(),
+});

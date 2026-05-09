@@ -353,6 +353,21 @@ async function executeRun(
 
     const ordered = topoSort(playbook.steps);
 
+    // Sprint 2 — playbook_run.started Event mit topo-sortierten Step-Keys, damit
+    // FE den Progress-UI gleich rendern kann ohne extra-Fetch.
+    secuEventBus.publish({
+        type: "playbook_run.started",
+        runId,
+        engagementId: engagement.id,
+        playbookKey: playbook.key,
+        rootEntityId: rootEntity.id,
+        plannedSteps: ordered.map((s) => s.key),
+        triggeredBy: input.triggeredBy ?? "manual",
+        triggeredByUserId: input.triggeredByUserId ?? null,
+        parentRunId: input.parentRunId ?? null,
+        hopDepth: 0, // resolveHopDepth wäre extra-Roundtrip, hopDepth steht in playbookRuns-Row falls FE das genau braucht
+    });
+
     // Run-Status-Semantik: "failed" nur wenn entweder ein Runner-Level-Fehler
     // (Condition/Target-Resolution/Worker-not-registered) auftrat ODER alle
     // ausgeführten Worker fehlgeschlagen sind. Einzelne Worker-Failures
@@ -361,8 +376,30 @@ async function executeRun(
     let runnerFatalError = false;
     let successfulWorkerRuns = 0;
     let totalWorkerRuns = 0;
+    let stepIndex = 0;
+    const totalSteps = ordered.length;
+
+    function publishStepAdvanced(stepKey: string, workerKey: string, status: "running" | "completed" | "skipped" | "failed", findingsCreated: number, discoveredEntities: number): void {
+        secuEventBus.publish({
+            type: "playbook_run.step_advanced",
+            runId,
+            engagementId: engagement.id,
+            playbookKey: playbook.key,
+            stepKey,
+            workerKey,
+            stepIndex,
+            totalSteps,
+            stepStatus: status,
+            findingsCreated,
+            discoveredEntities,
+        });
+    }
 
     for (const step of ordered) {
+        stepIndex += 1;
+        const findingsCreatedBefore = summary.totalFindingsCreated;
+        const discoveredEntitiesBefore = summary.totalDiscoveredEntities;
+        publishStepAdvanced(step.key, step.workerKey, "running", 0, 0);
         const ctx: PlaybookContext = {
             engagementId: engagement.id,
             rootEntity,
@@ -541,6 +578,22 @@ async function executeRun(
         stepOutputs[step.key] = stepOutput;
         summary.steps.push(stepOutput);
         await persistRunSummary(runId, summary);
+
+        // Step-Abschluss-Event: Status aus den runs-Outcomes ableiten.
+        const allSkipped = stepOutput.runs.length > 0 && stepOutput.runs.every((r) => r.status === "skipped");
+        const anyFailed = stepOutput.runs.some((r) => r.status === "failed");
+        const finalStatus: "completed" | "skipped" | "failed" = anyFailed
+            ? "failed"
+            : allSkipped
+                ? "skipped"
+                : "completed";
+        publishStepAdvanced(
+            step.key,
+            step.workerKey,
+            finalStatus,
+            summary.totalFindingsCreated - findingsCreatedBefore,
+            summary.totalDiscoveredEntities - discoveredEntitiesBefore,
+        );
     }
 
     summary.totalWorkerRuns = totalWorkerRuns;
@@ -559,8 +612,23 @@ async function executeRun(
         })
         .where(eq(playbookRuns.id, runId));
 
+    // `completed` bleibt das Auto-Chain-Trigger-Event (Rule-Evaluator hört
+    // darauf, FE-Backwards-Compat). `finished` ist der neue Frontend-Name —
+    // wir publishen beide damit die Bridge zwei separate WS-Topics serviced
+    // ohne die Rule-Engine zu duplizieren.
     secuEventBus.publish({
         type: "playbook_run.completed",
+        runId,
+        engagementId: engagement.id,
+        engagementKind: engagement.kind,
+        playbookKey: playbook.key,
+        status: finalStatus,
+        rootEntityId: rootEntity.id,
+        findingsCreated: summary.totalFindingsCreated,
+        discoveredEntities: summary.totalDiscoveredEntities,
+    });
+    secuEventBus.publish({
+        type: "playbook_run.finished",
         runId,
         engagementId: engagement.id,
         engagementKind: engagement.kind,

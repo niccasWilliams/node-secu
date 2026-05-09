@@ -211,6 +211,13 @@ export const findingService = {
         resolutionNote?: string | null;
         actorUserId: number | null;
     }): Promise<Finding | null> {
+        // Vor dem Patch: previousStatus für das WS-Event lesen.
+        const [prev] = await database
+            .select({ status: findings.status, severity: findings.severity, category: findings.category, entityId: findings.entityId })
+            .from(findings)
+            .where(and(eq(findings.engagementId, input.engagementId), eq(findings.id, input.findingId)))
+            .limit(1);
+
         const isResolved = RESOLVED_STATUSES.includes(input.status);
         const patch: Partial<typeof findings.$inferInsert> = {
             status: input.status,
@@ -226,6 +233,20 @@ export const findingService = {
             .set(patch)
             .where(and(eq(findings.engagementId, input.engagementId), eq(findings.id, input.findingId)))
             .returning();
+
+        if (updated && prev && prev.status !== input.status) {
+            secuEventBus.publish({
+                type: "finding.updated",
+                findingId: updated.id,
+                engagementId: updated.engagementId,
+                entityId: updated.entityId,
+                severity: updated.severity,
+                category: updated.category,
+                previousStatus: prev.status,
+                newStatus: updated.status,
+                actorUserId: input.actorUserId,
+            });
+        }
         return updated ?? null;
     },
 
@@ -288,6 +309,16 @@ export const findingService = {
             body: input.body,
         };
         const [inserted] = await database.insert(findingComments).values(row).returning();
+        if (inserted) {
+            secuEventBus.publish({
+                type: "finding.comment_added",
+                findingId: input.findingId,
+                engagementId: input.engagementId,
+                commentId: inserted.id,
+                excerpt: inserted.body.slice(0, 80),
+                actorUserId: input.userId,
+            });
+        }
         return inserted ?? null;
     },
 
@@ -554,6 +585,7 @@ async function publishFindingCreated(finding: Finding): Promise<void> {
             title: finding.title,
             fingerprint: finding.fingerprint,
             cveIds: (finding.cveIds ?? []) as string[],
+            workerRunId: finding.workerRunId ?? null,
         });
     } catch (err) {
         console.error("[finding.service] event publish failed", { findingId: finding.id, err: (err as Error).message });

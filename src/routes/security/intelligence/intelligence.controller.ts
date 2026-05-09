@@ -4,7 +4,7 @@
 import type { Request, Response } from "express";
 import type { ValidatedRequest } from "@/api-contract/contract.middleware";
 import { responseHandler } from "@/lib/communication";
-import { intelligenceService } from "@/lib/security/intelligence/intelligence.service";
+import { identityService, intelligenceService } from "@/lib/security/intelligence/intelligence.service";
 import type {
     CrossEngagementHitsQuery,
     NeighborhoodQuery,
@@ -64,6 +64,22 @@ class IntelligenceController {
             const q = v<TechUsagesQuery>(req, "query");
             const items = await intelligenceService.techUsages(techName, { limit: q.limit });
             return responseHandler(res, 200, undefined, { items });
+        } catch (e: any) {
+            return responseHandler(res, 500, e?.message ?? "Internal Server Error");
+        }
+    }
+
+    /**
+     * Sprint 2 (Backend-Report 2026-05-09 Block 5) — GET /intelligence/identities/:personId
+     * Convenience-Endpoint: liefert Person + Aliases + Engagements + Findings +
+     * Auth-Decisions in einem Bundle. Siehe identityService.identityBundle().
+     */
+    async identityBundle(req: Request, res: Response) {
+        try {
+            const { personId } = v<{ personId: number }>(req, "params");
+            const bundle = await identityService.identityBundle(personId);
+            if (!bundle) return responseHandler(res, 404, "Person not found");
+            return responseHandler(res, 200, undefined, bundle);
         } catch (e: any) {
             return responseHandler(res, 500, e?.message ?? "Internal Server Error");
         }

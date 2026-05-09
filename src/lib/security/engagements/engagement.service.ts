@@ -3,7 +3,7 @@
 // Phase 1: CRUD + Convenience-Endpoint (POST /engagements mit primaryDomain).
 // Findings/Playbooks/Workers binden ab Phase 2 hier an.
 
-import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { database } from "@/db";
 import { users } from "@/db/schema";
 import {
@@ -13,17 +13,27 @@ import {
     entities,
     entityAuthorizations,
     findings,
+    type Artifact,
     type Engagement,
     type EngagementEntityRole,
     type EngagementKind,
     type EngagementStatus,
     type Entity,
+    type EntityKind,
     type AuthorizationKind,
     type AuthorizationScope,
     type AuthorizationProofType,
+    type AuthorizationScope as AuthorizationScopeType,
     type EntityAuthorization,
+    type SecuEngagementScope,
+    type SecuEngagementScopeContact,
+    type SecuEngagementScopeRule,
+    type SecuEngagementScopeTarget,
+    type SecuEngagementScopeWindow,
 } from "@/db/individual/individual-schema";
 import { entityService } from "../entities/entity.service";
+import { relationshipService } from "../entities/relationship.service";
+import { secuEventBus } from "../rules/event-bus";
 
 export type EngagementSeverityCounts = {
     critical: number;
@@ -44,6 +54,112 @@ export type EngagementListItem = Engagement & {
     primaryDomain: string | null;
     owner: EngagementOwnerSummary | null;
 };
+
+// ─── Sprint 2 — Scope-Match-Helpers (Block 4) ────────────────────────────────
+
+/**
+ * Prüft ob ein Scope-Target eine Entity matched. Strategie pro Target-Kind:
+ *   - domain                 → Entity-Kind asset_domain/asset_subdomain mit
+ *                              gleichem Suffix (lowercased Comparison).
+ *   - subdomain_pattern      → Wildcard `*.example.com` matcht *jede* Subdomain
+ *                              von example.com (nicht aber example.com selbst).
+ *   - ip                     → Entity-Kind asset_ip mit exaktem Match.
+ *   - ip_range               → Entity-Kind asset_ip im CIDR-Range (IPv4 only).
+ *   - url                    → Entity-Kind asset_url mit URL-Präfix-Match
+ *                              (Origin-Vergleich, Pfad ist Präfix).
+ *   - app | other            → free-text Substring-Match auf Entity.displayName
+ *                              ODER canonicalKey.
+ *   - email                  → Entity-Kind email_address, exakter local-part-Match.
+ *   - person                 → Entity-Kind person, displayName-Substring.
+ *
+ * Der Match ist absichtlich konservativ — bei Unsicherheit eher kein Match,
+ * damit wir nichts blocken was eigentlich erlaubt wäre. Out-of-scope-Regeln
+ * werden trotzdem strikt durchgesetzt (siehe Reihenfolge in checkInScope).
+ */
+function matchTarget(target: SecuEngagementScopeTarget, entity: Entity): boolean {
+    const tValue = String(target.value ?? "").trim().toLowerCase();
+    if (tValue.length === 0) return false;
+
+    const eName = entity.displayName.toLowerCase();
+    const eCanon = entity.canonicalKey.toLowerCase();
+
+    switch (target.kind) {
+        case "domain": {
+            if (entity.kind !== "asset_domain" && entity.kind !== "asset_subdomain") return false;
+            return eName === tValue || eName.endsWith(`.${tValue}`) || eCanon === tValue || eCanon.endsWith(`.${tValue}`);
+        }
+        case "subdomain_pattern": {
+            // unterstützt `*.example.com` und `example.com/*` als equivalent.
+            const stripped = tValue.replace(/^\*\.|\/\*$/g, "");
+            if (entity.kind !== "asset_subdomain" && entity.kind !== "asset_domain") return false;
+            return eName !== stripped && (eName.endsWith(`.${stripped}`) || eCanon.endsWith(`.${stripped}`));
+        }
+        case "ip": {
+            if (entity.kind !== "asset_ip") return false;
+            return eCanon === tValue || eName === tValue;
+        }
+        case "ip_range": {
+            if (entity.kind !== "asset_ip") return false;
+            return ipv4InCidr(eCanon || eName, tValue);
+        }
+        case "url": {
+            if (entity.kind !== "asset_url") return false;
+            return eCanon.startsWith(tValue) || eName.startsWith(tValue);
+        }
+        case "email": {
+            if (entity.kind !== "email_address") return false;
+            return eCanon === tValue || eName === tValue;
+        }
+        case "person": {
+            if (entity.kind !== "person") return false;
+            return eName.includes(tValue) || eCanon.includes(tValue);
+        }
+        case "app":
+        case "other":
+        default:
+            return eName.includes(tValue) || eCanon.includes(tValue);
+    }
+}
+
+function ipv4InCidr(ip: string, cidr: string): boolean {
+    const m = cidr.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/);
+    if (!m) return false;
+    const prefix = parseInt(m[5], 10);
+    if (!Number.isFinite(prefix) || prefix < 0 || prefix > 32) return false;
+    const ipParts = ip.split(".").map((n) => parseInt(n, 10));
+    if (ipParts.length !== 4 || ipParts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+    const cidrParts = [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10), parseInt(m[4], 10)];
+    const ipNum = ((ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3]) >>> 0;
+    const cidrNum = ((cidrParts[0] << 24) | (cidrParts[1] << 16) | (cidrParts[2] << 8) | cidrParts[3]) >>> 0;
+    const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+    return (ipNum & mask) === (cidrNum & mask);
+}
+
+/**
+ * Prüft, ob die aktuelle Server-Zeit in einem testWindow liegt. Erlaubt sich
+ * den Pragmatismus, alle Server-lokalen Datums-Methoden zu nutzen — wir
+ * setzen voraus, dass node-secu auf einer Box läuft, deren TZ entweder UTC
+ * oder Europe/Berlin ist (sibling-Stack auf operator-Linux). Eine korrekte
+ * IANA-zone Konvertierung würde Intl.DateTimeFormat erfordern und ist
+ * Phase-3-würdig — kein Production-Blocker.
+ */
+function matchTestWindowNow(window: SecuEngagementScopeWindow): boolean {
+    if (!Array.isArray(window.daysOfWeek) || window.daysOfWeek.length === 0) return true;
+    const now = new Date();
+    const dow = now.getDay();
+    if (!window.daysOfWeek.includes(dow)) return false;
+
+    const [fromH, fromM] = (window.fromTime ?? "00:00").split(":").map((n) => parseInt(n, 10));
+    const [untilH, untilM] = (window.untilTime ?? "23:59").split(":").map((n) => parseInt(n, 10));
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    const minutesFrom = (fromH || 0) * 60 + (fromM || 0);
+    const minutesUntil = (untilH || 23) * 60 + (untilM || 59);
+    if (minutesFrom <= minutesUntil) {
+        return minutesNow >= minutesFrom && minutesNow <= minutesUntil;
+    }
+    // Window über Mitternacht (z.B. 22:00 → 06:00).
+    return minutesNow >= minutesFrom || minutesNow <= minutesUntil;
+}
 
 function slugify(input: string): string {
     return input
@@ -558,6 +674,282 @@ export const engagementService = {
             })
             .returning({ id: artifacts.id });
         return row.id;
+    },
+
+    /**
+     * Sprint 2 (Backend-Report 2026-05-09 Block 2) — Note-Listing pro Engagement
+     * inkl. Entity-Snapshot. Nutzt artifacts mit kind='note' (kein neues Tabellen-
+     * Schema). Sortierbar nach createdAt/updatedAt; entityId-Filter stellt sicher,
+     * dass die Drawer-View "alle Notes zur Person X" funktioniert.
+     */
+    async listNotes(input: {
+        engagementId: number;
+        entityId?: number | null;
+        limit: number;
+        offset: number;
+        sortBy: "createdAt" | "updatedAt";
+        order: "asc" | "desc";
+    }): Promise<Array<Artifact & { entity: { id: number; kind: EntityKind; displayName: string } | null }>> {
+        const conditions: SQL[] = [
+            eq(artifacts.engagementId, input.engagementId),
+            eq(artifacts.kind, "note"),
+        ];
+        if (input.entityId != null) conditions.push(eq(artifacts.entityId, input.entityId));
+
+        const sortColumn = input.sortBy === "updatedAt"
+            ? sql`coalesce(${artifacts.updatedAt}, ${artifacts.capturedAt})`
+            : artifacts.capturedAt;
+        const direction = input.order === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+        const rows = await database
+            .select({
+                artifact: artifacts,
+                entity: { id: entities.id, kind: entities.kind, displayName: entities.displayName },
+            })
+            .from(artifacts)
+            .leftJoin(entities, eq(entities.id, artifacts.entityId))
+            .where(and(...conditions))
+            .orderBy(direction)
+            .limit(Math.min(Math.max(input.limit, 1), 500))
+            .offset(Math.max(input.offset, 0));
+
+        return rows.map((r) => ({
+            ...r.artifact,
+            entity: r.entity?.id ? r.entity : null,
+        }));
+    },
+
+    async updateNote(input: {
+        engagementId: number;
+        noteId: number;
+        title?: string | null;
+        body?: string;
+        entityId?: number | null;
+        actorUserId: number | null;
+    }): Promise<Artifact | null> {
+        const patch: Partial<typeof artifacts.$inferInsert> = {
+            updatedAt: new Date(),
+            updatedBy: input.actorUserId,
+        };
+        if (input.title !== undefined) patch.title = input.title;
+        if (input.body !== undefined) patch.body = input.body;
+        if (input.entityId !== undefined) patch.entityId = input.entityId;
+
+        const [updated] = await database
+            .update(artifacts)
+            .set(patch)
+            .where(and(
+                eq(artifacts.id, input.noteId),
+                eq(artifacts.engagementId, input.engagementId),
+                eq(artifacts.kind, "note"),
+            ))
+            .returning();
+        return updated ?? null;
+    },
+
+    async deleteNote(input: {
+        engagementId: number;
+        noteId: number;
+    }): Promise<Artifact | null> {
+        const [deleted] = await database
+            .delete(artifacts)
+            .where(and(
+                eq(artifacts.id, input.noteId),
+                eq(artifacts.engagementId, input.engagementId),
+                eq(artifacts.kind, "note"),
+            ))
+            .returning();
+        return deleted ?? null;
+    },
+
+    // ─── Scope (Sprint 2, Backend-Report Block 4) ───────────────────────
+
+    /**
+     * Komplett-Ersatz der strukturierten Scope-Definition. Behält IDs bestehender
+     * Targets/Rules/Windows/Contacts wenn Caller welche mitschickt; vergibt frische
+     * IDs für alle anderen, damit Frontend stable Refs hat.
+     */
+    async replaceScope(input: {
+        engagementId: number;
+        summary?: string | null;
+        targets?: Array<Partial<SecuEngagementScopeTarget>> | undefined;
+        rulesOfEngagement?: Array<Partial<SecuEngagementScopeRule>> | undefined;
+        testWindows?: Array<Partial<SecuEngagementScopeWindow>> | undefined;
+        notificationContacts?: Array<Partial<SecuEngagementScopeContact>> | undefined;
+        confirmedByUserId?: number | null;
+    }): Promise<Engagement | null> {
+        const [current] = await database.select().from(engagements).where(eq(engagements.id, input.engagementId)).limit(1);
+        if (!current) return null;
+
+        const stableId = (existing: string | undefined): string => existing && existing.trim() !== "" ? existing : `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+        const nextScope: SecuEngagementScope = {
+            ...(current.scope ?? {}),
+            targets: (input.targets ?? current.scope?.targets ?? []).map((t) => ({
+                id: stableId(t.id),
+                kind: (t.kind ?? "domain") as SecuEngagementScopeTarget["kind"],
+                value: String(t.value ?? "").trim(),
+                rule: (t.rule ?? "in_scope") as SecuEngagementScopeTarget["rule"],
+                notes: t.notes ?? null,
+            })).filter((t) => t.value.length > 0),
+            rulesOfEngagement: (input.rulesOfEngagement ?? current.scope?.rulesOfEngagement ?? []).map((r) => ({
+                id: stableId(r.id),
+                text: String(r.text ?? "").trim(),
+                severity: (r.severity ?? "should") as SecuEngagementScopeRule["severity"],
+            })).filter((r) => r.text.length > 0),
+            testWindows: (input.testWindows ?? current.scope?.testWindows ?? []).map((w) => ({
+                id: stableId(w.id),
+                timezone: w.timezone ?? "Europe/Berlin",
+                daysOfWeek: Array.isArray(w.daysOfWeek) ? w.daysOfWeek.filter((d) => Number.isFinite(d) && d >= 0 && d <= 6) : [1, 2, 3, 4, 5],
+                fromTime: w.fromTime ?? "09:00",
+                untilTime: w.untilTime ?? "18:00",
+            })),
+            notificationContacts: (input.notificationContacts ?? current.scope?.notificationContacts ?? []).map((c) => ({
+                id: stableId(c.id),
+                name: String(c.name ?? "").trim(),
+                email: c.email ?? null,
+                phone: c.phone ?? null,
+                onSeverityAtLeast: (c.onSeverityAtLeast ?? "high") as SecuEngagementScopeContact["onSeverityAtLeast"],
+            })).filter((c) => c.name.length > 0),
+            confirmedAt: input.confirmedByUserId != null ? new Date().toISOString() : current.scope?.confirmedAt ?? null,
+            confirmedByUserId: input.confirmedByUserId ?? current.scope?.confirmedByUserId ?? null,
+        };
+
+        const patch: Partial<typeof engagements.$inferInsert> = {
+            scope: nextScope,
+            updatedAt: new Date(),
+        };
+        if (input.summary !== undefined) patch.scopeSummary = input.summary;
+
+        const [updated] = await database
+            .update(engagements)
+            .set(patch)
+            .where(eq(engagements.id, input.engagementId))
+            .returning();
+        return updated ?? null;
+    },
+
+    /**
+     * Sprint 2 — Scope-Gate für active_safe / active_intrusive Worker.
+     * Wird vom worker-runner VOR der Tool-Execution aufgerufen. Reihenfolge:
+     *
+     *   1) Wenn ein `out_of_scope`-Target matched → blocken mit reason="out_of_scope".
+     *   2) Wenn `targets[]` mind. einen `in_scope`-Eintrag enthält UND nichts matched
+     *      → blocken mit reason="not_in_explicit_scope" (Operator hat Scope explizit
+     *      definiert, aber das Target steht nicht drin).
+     *   3) Wenn keine in_scope-Targets definiert sind → erlauben (Backwards-compat:
+     *      ältere Engagements ohne Scope-Editor laufen weiter).
+     *   4) testWindows: wenn definiert, nur innerhalb der Fenster aktive Worker
+     *      laufen lassen (passive bleibt unbetroffen, der Caller checked das).
+     */
+    async checkInScope(input: {
+        engagementId: number;
+        entityId: number;
+        requiredScope: AuthorizationScopeType;
+    }): Promise<{ allowed: boolean; reason?: string }> {
+        const [engagement] = await database
+            .select({ scope: engagements.scope })
+            .from(engagements)
+            .where(eq(engagements.id, input.engagementId))
+            .limit(1);
+        if (!engagement) return { allowed: false, reason: "engagement_not_found" };
+        const scope = engagement.scope ?? {};
+
+        const targets = Array.isArray(scope.targets) ? scope.targets : [];
+        if (targets.length > 0) {
+            const [entity] = await database.select().from(entities).where(eq(entities.id, input.entityId)).limit(1);
+            if (!entity) return { allowed: false, reason: "entity_not_found" };
+
+            const matchedOut = targets.find((t) => t.rule === "out_of_scope" && matchTarget(t, entity));
+            if (matchedOut) return { allowed: false, reason: `out_of_scope:${matchedOut.value}` };
+
+            const hasInScope = targets.some((t) => t.rule === "in_scope");
+            if (hasInScope) {
+                const matchedIn = targets.find((t) => t.rule === "in_scope" && matchTarget(t, entity));
+                if (!matchedIn) return { allowed: false, reason: "not_in_explicit_scope" };
+            }
+        }
+
+        const windows = Array.isArray(scope.testWindows) ? scope.testWindows : [];
+        if (windows.length > 0 && input.requiredScope !== "passive_only") {
+            const inWindow = windows.some(matchTestWindowNow);
+            if (!inWindow) return { allowed: false, reason: "outside_test_window" };
+        }
+
+        return { allowed: true };
+    },
+
+    // ─── Alias-Linking (Sprint 2, Backend-Report Block 5) ───────────────
+
+    /**
+     * Symmetrischer Alias-Link für username/phone/social_account. Verhalten
+     * identisch zu `linkOsintEmailEntity`: upsert Entity → engagement-link →
+     * optional an Person verlinken → Auto-Chain via entity.created-Event.
+     *
+     * Diskrimnator wird für username (platform) genutzt, damit derselbe
+     * username auf zwei Plattformen (z.B. github+twitter) zwei Entities ergibt.
+     */
+    async linkAliasEntity(input: {
+        engagementId: number;
+        aliasKind: "username" | "phone_number" | "social_account";
+        primaryValue: string;
+        discriminator?: string | null;
+        data: Record<string, unknown>;
+        personId: number | null;
+        relationshipKind: "owns_username" | "owns_phone" | "owns_social_account";
+        addedByUserId: number | null;
+    }): Promise<{
+        entity: Entity;
+        engagementEntityId: number;
+        relationshipId: number | null;
+    }> {
+        const display = input.discriminator
+            ? `${input.discriminator}:${input.primaryValue}`
+            : input.primaryValue;
+
+        const entity = await entityService.upsert({
+            kind: input.aliasKind,
+            displayName: display,
+            canonical: {
+                kind: input.aliasKind,
+                primaryValue: input.primaryValue,
+                discriminator: input.discriminator ?? null,
+            },
+            data: input.data,
+        });
+
+        const link = await this.linkEntity({
+            engagementId: input.engagementId,
+            entityId: entity.id,
+            addedBy: input.addedByUserId,
+        });
+
+        let relId: number | null = null;
+        if (input.personId) {
+            const rel = await relationshipService.upsert({
+                fromEntityId: input.personId,
+                toEntityId: entity.id,
+                kind: input.relationshipKind,
+                confidence: 100,
+                source: "manual_api",
+            });
+            relId = rel.id;
+        }
+
+        // entity.linked-Event für UI-Live-Update.
+        if (link.created) {
+            secuEventBus.publish({
+                type: "entity.linked",
+                engagementId: input.engagementId,
+                entityId: entity.id,
+                engagementEntityId: link.id,
+                role: "in_scope",
+                actorUserId: input.addedByUserId,
+                entitySnapshot: { kind: entity.kind, displayName: entity.displayName, canonicalKey: entity.canonicalKey },
+            });
+        }
+
+        return { entity, engagementEntityId: link.id, relationshipId: relId };
     },
 
     // ─── Counts (für getById-Detailshape) ───────────────────────────────

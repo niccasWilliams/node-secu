@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T23:56:25.848Z
+// Generated at: 2026-05-09T01:32:39.219Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEntityUpsertParams = undefined;
@@ -161,7 +161,9 @@ export type SecuEntityGetResponse = import("../types").ApiEnvelope<SecuEntityGet
 export type SecuEntityRelationshipsListParams = {
   id: number;
 };
-export type SecuEntityRelationshipsListQuery = undefined;
+export type SecuEntityRelationshipsListQuery = {
+  engagementId?: number;
+};
 export type SecuEntityRelationshipsListBody = undefined;
 export type SecuEntityRelationshipsListResponseData = Array<{
   id: number;
@@ -326,8 +328,8 @@ export const apiRoutes_secu_entities = {
     auth: {"type":"frontend_bearer_http"},
     meta: {
       tags: ["secu-entities"],
-      summary: "List relationships incident to an entity",
-      validated: {"params":true,"query":false,"body":false},
+      summary: "List relationships incident to an entity (optional engagementId-Filter, Sprint 2)",
+      validated: {"params":true,"query":true,"body":false},
     },
     types: null as unknown as {
       params: SecuEntityRelationshipsListParams;

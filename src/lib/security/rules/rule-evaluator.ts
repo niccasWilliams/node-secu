@@ -15,6 +15,7 @@ import {
     engagements,
     type EngagementKind,
     type Rule,
+    type RuleTrigger,
 } from "@/db/individual/individual-schema";
 
 import { auditLogService } from "../audit/audit-log.service";
@@ -71,7 +72,11 @@ async function processEvent(event: SecuEvent): Promise<void> {
     // bootstrap.ts für Direct-Listener). Wir filtern hier, weil SecuEventType
     // breiter ist als ruleTriggerEnum.
     if (event.type === "entity.cross_engagement_hit") return;
-    const candidates = await ruleService.getEnabledForTrigger(event.type);
+    // SecuEventType ist Sprint 2 breiter als ruleTriggerEnum (z.B. note.created,
+    // signal_chain.*, scope.updated). Rules abonnieren weiterhin nur die 4
+    // Original-Trigger — wir filtern oben in `triggers[]` und casten hier
+    // sicher, da andere Event-Types diesen Pfad nicht erreichen.
+    const candidates = await ruleService.getEnabledForTrigger(event.type as RuleTrigger);
     if (candidates.length === 0) return;
 
     const data = await buildConditionData(event);

@@ -8,6 +8,7 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { database } from "@/db";
 import {
+    engagementEntities,
     entities,
     entityRelationships,
     type Entity,
@@ -23,6 +24,13 @@ export type UpsertRelationshipInput = {
     confidence?: number;
     /** "manual" | "recon_<tool>" | "osint_<source>" */
     source?: string;
+    /**
+     * Sprint 2 (Backend-Report Block 3) — Provenance: welcher Worker-Run hat
+     * die Relation als erstes geschrieben. Bleibt beim Update unverändert
+     * (firstObservedAt-Konvention) — nur beim INSERT gesetzt.
+     */
+    discoveredByWorkerRunId?: number | null;
+    discoveredByPlaybookRunId?: number | null;
 };
 
 export const relationshipService = {
@@ -67,14 +75,17 @@ export const relationshipService = {
                 data: input.data ?? {},
                 confidence: input.confidence ?? 100,
                 source: input.source ?? "manual",
+                discoveredByWorkerRunId: input.discoveredByWorkerRunId ?? null,
+                discoveredByPlaybookRunId: input.discoveredByPlaybookRunId ?? null,
             })
             .returning();
         return created;
     },
 
-    async listForEntity(entityId: number): Promise<
-        Array<EntityRelationship & { fromEntity?: Entity; toEntity?: Entity }>
-    > {
+    async listForEntity(
+        entityId: number,
+        opts?: { engagementId?: number | null },
+    ): Promise<Array<EntityRelationship & { fromEntity?: Entity; toEntity?: Entity }>> {
         const rows = await database
             .select()
             .from(entityRelationships)
@@ -87,12 +98,28 @@ export const relationshipService = {
             .orderBy(desc(entityRelationships.lastObservedAt));
 
         if (rows.length === 0) return [];
+
+        // Sprint 2 (Backend-Report Klärung #5) — Optional: nur Edges, deren
+        // beide Endpoints mit dem angegebenen Engagement verknüpft sind.
+        // Realisiert als post-filter-Step damit der Hot-Path `listBetween`
+        // (wird vom graph-service genutzt) nicht angefasst wird.
+        let filteredRows = rows;
+        if (opts?.engagementId != null) {
+            const linkRows = await database
+                .select({ entityId: engagementEntities.entityId })
+                .from(engagementEntities)
+                .where(eq(engagementEntities.engagementId, opts.engagementId));
+            const allowed = new Set(linkRows.map((l) => l.entityId));
+            filteredRows = rows.filter((r) => allowed.has(r.fromEntityId) && allowed.has(r.toEntityId));
+            if (filteredRows.length === 0) return [];
+        }
+
         const ids = Array.from(
-            new Set(rows.flatMap((r) => [r.fromEntityId, r.toEntityId])),
+            new Set(filteredRows.flatMap((r) => [r.fromEntityId, r.toEntityId])),
         );
         const ents = await database.select().from(entities).where(inArray(entities.id, ids));
         const map = new Map(ents.map((e) => [e.id, e]));
-        return rows.map((r) => ({
+        return filteredRows.map((r) => ({
             ...r,
             fromEntity: map.get(r.fromEntityId),
             toEntity: map.get(r.toEntityId),

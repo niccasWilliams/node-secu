@@ -6885,6 +6885,196 @@
                                     }
                                   ]
                                 },
+                                "scope": {
+                                  "type": "object",
+                                  "properties": {
+                                    "targets": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "domain",
+                                              "subdomain_pattern",
+                                              "ip",
+                                              "ip_range",
+                                              "url",
+                                              "app",
+                                              "email",
+                                              "person",
+                                              "other"
+                                            ]
+                                          },
+                                          "value": {
+                                            "type": "string"
+                                          },
+                                          "rule": {
+                                            "type": "string",
+                                            "enum": [
+                                              "in_scope",
+                                              "out_of_scope"
+                                            ]
+                                          },
+                                          "notes": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "value",
+                                          "rule",
+                                          "notes"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "rulesOfEngagement": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "type": "string"
+                                          },
+                                          "severity": {
+                                            "type": "string",
+                                            "enum": [
+                                              "must",
+                                              "should",
+                                              "info"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "text",
+                                          "severity"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "testWindows": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "timezone": {
+                                            "type": "string"
+                                          },
+                                          "daysOfWeek": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "integer"
+                                            }
+                                          },
+                                          "fromTime": {
+                                            "type": "string"
+                                          },
+                                          "untilTime": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "timezone",
+                                          "daysOfWeek",
+                                          "fromTime",
+                                          "untilTime"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "notificationContacts": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string"
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          },
+                                          "email": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "phone": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "onSeverityAtLeast": {
+                                            "type": "string",
+                                            "enum": [
+                                              "low",
+                                              "medium",
+                                              "high",
+                                              "critical"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "name",
+                                          "onSeverityAtLeast"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "confirmedAt": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "confirmedByUserId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
                                 "osintBudgetPerHour": {
                                   "type": "integer"
                                 },
@@ -6923,6 +7113,7 @@
                                 "status",
                                 "ownerUserId",
                                 "scopeSummary",
+                                "scope",
                                 "osintBudgetPerHour",
                                 "osintMaxHops",
                                 "createdAt",
@@ -7238,6 +7429,196 @@
                                   }
                                 ]
                               },
+                              "scope": {
+                                "type": "object",
+                                "properties": {
+                                  "targets": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "type": "string",
+                                          "enum": [
+                                            "domain",
+                                            "subdomain_pattern",
+                                            "ip",
+                                            "ip_range",
+                                            "url",
+                                            "app",
+                                            "email",
+                                            "person",
+                                            "other"
+                                          ]
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        },
+                                        "rule": {
+                                          "type": "string",
+                                          "enum": [
+                                            "in_scope",
+                                            "out_of_scope"
+                                          ]
+                                        },
+                                        "notes": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "kind",
+                                        "value",
+                                        "rule",
+                                        "notes"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "rulesOfEngagement": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "text": {
+                                          "type": "string"
+                                        },
+                                        "severity": {
+                                          "type": "string",
+                                          "enum": [
+                                            "must",
+                                            "should",
+                                            "info"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "text",
+                                        "severity"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "testWindows": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "timezone": {
+                                          "type": "string"
+                                        },
+                                        "daysOfWeek": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "fromTime": {
+                                          "type": "string"
+                                        },
+                                        "untilTime": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "timezone",
+                                        "daysOfWeek",
+                                        "fromTime",
+                                        "untilTime"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "notificationContacts": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "email": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "phone": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "onSeverityAtLeast": {
+                                          "type": "string",
+                                          "enum": [
+                                            "low",
+                                            "medium",
+                                            "high",
+                                            "critical"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "name",
+                                        "onSeverityAtLeast"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "confirmedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "confirmedByUserId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
                               "osintBudgetPerHour": {
                                 "type": "integer"
                               },
@@ -7353,6 +7734,7 @@
                               "status",
                               "ownerUserId",
                               "scopeSummary",
+                              "scope",
                               "osintBudgetPerHour",
                               "osintMaxHops",
                               "createdAt",
@@ -7591,6 +7973,196 @@
                                 }
                               ]
                             },
+                            "scope": {
+                              "type": "object",
+                              "properties": {
+                                "targets": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "domain",
+                                          "subdomain_pattern",
+                                          "ip",
+                                          "ip_range",
+                                          "url",
+                                          "app",
+                                          "email",
+                                          "person",
+                                          "other"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      },
+                                      "rule": {
+                                        "type": "string",
+                                        "enum": [
+                                          "in_scope",
+                                          "out_of_scope"
+                                        ]
+                                      },
+                                      "notes": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "value",
+                                      "rule",
+                                      "notes"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "rulesOfEngagement": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      },
+                                      "severity": {
+                                        "type": "string",
+                                        "enum": [
+                                          "must",
+                                          "should",
+                                          "info"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "text",
+                                      "severity"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "testWindows": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "timezone": {
+                                        "type": "string"
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "fromTime": {
+                                        "type": "string"
+                                      },
+                                      "untilTime": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "timezone",
+                                      "daysOfWeek",
+                                      "fromTime",
+                                      "untilTime"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "notificationContacts": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "email": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "phone": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "onSeverityAtLeast": {
+                                        "type": "string",
+                                        "enum": [
+                                          "low",
+                                          "medium",
+                                          "high",
+                                          "critical"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "onSeverityAtLeast"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "confirmedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "confirmedByUserId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            },
                             "osintBudgetPerHour": {
                               "type": "integer"
                             },
@@ -7685,6 +8257,38 @@
                                             "items": {
                                               "type": "string"
                                             }
+                                          },
+                                          "firstSeenAt": {
+                                            "type": "string"
+                                          },
+                                          "lastSeenAt": {
+                                            "type": "string"
+                                          },
+                                          "linkedAt": {
+                                            "type": "string"
+                                          },
+                                          "provenance": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "speculative": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "confidence": {
+                                                    "type": "number"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "speculative",
+                                                  "confidence"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
                                           }
                                         },
                                         "required": [
@@ -7693,7 +8297,10 @@
                                           "kind",
                                           "entityId",
                                           "role",
-                                          "tags"
+                                          "tags",
+                                          "firstSeenAt",
+                                          "lastSeenAt",
+                                          "linkedAt"
                                         ],
                                         "additionalProperties": false
                                       }
@@ -7726,6 +8333,51 @@
                                           },
                                           "confidence": {
                                             "type": "integer"
+                                          },
+                                          "firstObservedAt": {
+                                            "type": "string"
+                                          },
+                                          "lastObservedAt": {
+                                            "type": "string"
+                                          },
+                                          "relationshipSource": {
+                                            "type": "string"
+                                          },
+                                          "discoveredBy": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "worker_run",
+                                                      "playbook_run",
+                                                      "manual",
+                                                      "signal_chain"
+                                                    ]
+                                                  },
+                                                  "refId": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "integer"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "kind",
+                                                  "refId"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
                                           }
                                         },
                                         "required": [
@@ -7733,7 +8385,11 @@
                                           "source",
                                           "target",
                                           "kind",
-                                          "confidence"
+                                          "confidence",
+                                          "firstObservedAt",
+                                          "lastObservedAt",
+                                          "relationshipSource",
+                                          "discoveredBy"
                                         ],
                                         "additionalProperties": false
                                       }
@@ -7767,6 +8423,7 @@
                             "status",
                             "ownerUserId",
                             "scopeSummary",
+                            "scope",
                             "osintBudgetPerHour",
                             "osintMaxHops",
                             "createdAt",
@@ -7933,6 +8590,196 @@
                                 }
                               ]
                             },
+                            "scope": {
+                              "type": "object",
+                              "properties": {
+                                "targets": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "domain",
+                                          "subdomain_pattern",
+                                          "ip",
+                                          "ip_range",
+                                          "url",
+                                          "app",
+                                          "email",
+                                          "person",
+                                          "other"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      },
+                                      "rule": {
+                                        "type": "string",
+                                        "enum": [
+                                          "in_scope",
+                                          "out_of_scope"
+                                        ]
+                                      },
+                                      "notes": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "value",
+                                      "rule",
+                                      "notes"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "rulesOfEngagement": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      },
+                                      "severity": {
+                                        "type": "string",
+                                        "enum": [
+                                          "must",
+                                          "should",
+                                          "info"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "text",
+                                      "severity"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "testWindows": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "timezone": {
+                                        "type": "string"
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "fromTime": {
+                                        "type": "string"
+                                      },
+                                      "untilTime": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "timezone",
+                                      "daysOfWeek",
+                                      "fromTime",
+                                      "untilTime"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "notificationContacts": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "email": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "phone": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "onSeverityAtLeast": {
+                                        "type": "string",
+                                        "enum": [
+                                          "low",
+                                          "medium",
+                                          "high",
+                                          "critical"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "onSeverityAtLeast"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "confirmedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "confirmedByUserId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            },
                             "osintBudgetPerHour": {
                               "type": "integer"
                             },
@@ -7971,6 +8818,7 @@
                             "status",
                             "ownerUserId",
                             "scopeSummary",
+                            "scope",
                             "osintBudgetPerHour",
                             "osintMaxHops",
                             "createdAt",
@@ -8215,6 +9063,196 @@
                                 }
                               ]
                             },
+                            "scope": {
+                              "type": "object",
+                              "properties": {
+                                "targets": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "domain",
+                                          "subdomain_pattern",
+                                          "ip",
+                                          "ip_range",
+                                          "url",
+                                          "app",
+                                          "email",
+                                          "person",
+                                          "other"
+                                        ]
+                                      },
+                                      "value": {
+                                        "type": "string"
+                                      },
+                                      "rule": {
+                                        "type": "string",
+                                        "enum": [
+                                          "in_scope",
+                                          "out_of_scope"
+                                        ]
+                                      },
+                                      "notes": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "value",
+                                      "rule",
+                                      "notes"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "rulesOfEngagement": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "text": {
+                                        "type": "string"
+                                      },
+                                      "severity": {
+                                        "type": "string",
+                                        "enum": [
+                                          "must",
+                                          "should",
+                                          "info"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "text",
+                                      "severity"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "testWindows": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "timezone": {
+                                        "type": "string"
+                                      },
+                                      "daysOfWeek": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "fromTime": {
+                                        "type": "string"
+                                      },
+                                      "untilTime": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "timezone",
+                                      "daysOfWeek",
+                                      "fromTime",
+                                      "untilTime"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "notificationContacts": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "email": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "phone": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "onSeverityAtLeast": {
+                                        "type": "string",
+                                        "enum": [
+                                          "low",
+                                          "medium",
+                                          "high",
+                                          "critical"
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "name",
+                                      "onSeverityAtLeast"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "confirmedAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "confirmedByUserId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "additionalProperties": false
+                            },
                             "osintBudgetPerHour": {
                               "type": "integer"
                             },
@@ -8253,6 +9291,7 @@
                             "status",
                             "ownerUserId",
                             "scopeSummary",
+                            "scope",
                             "osintBudgetPerHour",
                             "osintMaxHops",
                             "createdAt",
@@ -8431,6 +9470,38 @@
                                         "items": {
                                           "type": "string"
                                         }
+                                      },
+                                      "firstSeenAt": {
+                                        "type": "string"
+                                      },
+                                      "lastSeenAt": {
+                                        "type": "string"
+                                      },
+                                      "linkedAt": {
+                                        "type": "string"
+                                      },
+                                      "provenance": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "speculative": {
+                                                "type": "boolean"
+                                              },
+                                              "confidence": {
+                                                "type": "number"
+                                              }
+                                            },
+                                            "required": [
+                                              "speculative",
+                                              "confidence"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -8439,7 +9510,10 @@
                                       "kind",
                                       "entityId",
                                       "role",
-                                      "tags"
+                                      "tags",
+                                      "firstSeenAt",
+                                      "lastSeenAt",
+                                      "linkedAt"
                                     ],
                                     "additionalProperties": false
                                   }
@@ -8472,6 +9546,51 @@
                                       },
                                       "confidence": {
                                         "type": "integer"
+                                      },
+                                      "firstObservedAt": {
+                                        "type": "string"
+                                      },
+                                      "lastObservedAt": {
+                                        "type": "string"
+                                      },
+                                      "relationshipSource": {
+                                        "type": "string"
+                                      },
+                                      "discoveredBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "worker_run",
+                                                  "playbook_run",
+                                                  "manual",
+                                                  "signal_chain"
+                                                ]
+                                              },
+                                              "refId": {
+                                                "anyOf": [
+                                                  {
+                                                    "type": "integer"
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "refId"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
                                       }
                                     },
                                     "required": [
@@ -8479,7 +9598,11 @@
                                       "source",
                                       "target",
                                       "kind",
-                                      "confidence"
+                                      "confidence",
+                                      "firstObservedAt",
+                                      "lastObservedAt",
+                                      "relationshipSource",
+                                      "discoveredBy"
                                     ],
                                     "additionalProperties": false
                                   }
@@ -9221,6 +10344,1490 @@
                 "required": [
                   "body"
                 ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "get": {
+        "operationId": "secu_engagement_notes_list",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "List notes (artifact kind=note) of an engagement, optional entity filter + pagination",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "engagementId": {
+                                "type": "integer"
+                              },
+                              "entityId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "title": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "body": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "kind": {
+                                "const": "note"
+                              },
+                              "capturedAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "createdBy": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "updatedBy": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "entity": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "asset_domain",
+                                          "asset_subdomain",
+                                          "asset_ip",
+                                          "asset_host",
+                                          "asset_url",
+                                          "person",
+                                          "organization",
+                                          "location",
+                                          "credential_ref",
+                                          "document",
+                                          "email_address",
+                                          "username",
+                                          "phone_number",
+                                          "social_account",
+                                          "infrastructure_provider"
+                                        ]
+                                      },
+                                      "displayName": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "displayName"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "engagementId",
+                              "entityId",
+                              "title",
+                              "body",
+                              "kind",
+                              "capturedAt",
+                              "updatedAt",
+                              "createdBy",
+                              "updatedBy",
+                              "entity"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "updatedAt"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/notes/:noteId": {
+      "patch": {
+        "operationId": "secu_engagement_note_update",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Patch an existing note (title/body/entity link)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer"
+                            },
+                            "engagementId": {
+                              "type": "integer"
+                            },
+                            "entityId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "title": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "body": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "kind": {
+                              "const": "note"
+                            },
+                            "capturedAt": {
+                              "type": "string"
+                            },
+                            "updatedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "createdBy": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "updatedBy": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "entity": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "integer"
+                                    },
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "asset_domain",
+                                        "asset_subdomain",
+                                        "asset_ip",
+                                        "asset_host",
+                                        "asset_url",
+                                        "person",
+                                        "organization",
+                                        "location",
+                                        "credential_ref",
+                                        "document",
+                                        "email_address",
+                                        "username",
+                                        "phone_number",
+                                        "social_account",
+                                        "infrastructure_provider"
+                                      ]
+                                    },
+                                    "displayName": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "displayName"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "engagementId",
+                            "entityId",
+                            "title",
+                            "body",
+                            "kind",
+                            "capturedAt",
+                            "updatedAt",
+                            "createdBy",
+                            "updatedBy",
+                            "entity"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 256
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 65536
+                  },
+                  "entityId": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "delete": {
+        "operationId": "secu_engagement_note_delete",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Delete a note from an engagement",
+        "responses": {
+          "204": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/scope": {
+      "get": {
+        "operationId": "secu_engagement_scope_get",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Get structured scope definition (targets/RoE/test-windows/contacts)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "targets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "domain",
+                                      "subdomain_pattern",
+                                      "ip",
+                                      "ip_range",
+                                      "url",
+                                      "app",
+                                      "email",
+                                      "person",
+                                      "other"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  },
+                                  "rule": {
+                                    "type": "string",
+                                    "enum": [
+                                      "in_scope",
+                                      "out_of_scope"
+                                    ]
+                                  },
+                                  "notes": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "kind",
+                                  "value",
+                                  "rule",
+                                  "notes"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "rulesOfEngagement": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "must",
+                                      "should",
+                                      "info"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "text",
+                                  "severity"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "testWindows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "timezone": {
+                                    "type": "string"
+                                  },
+                                  "daysOfWeek": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "fromTime": {
+                                    "type": "string"
+                                  },
+                                  "untilTime": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "timezone",
+                                  "daysOfWeek",
+                                  "fromTime",
+                                  "untilTime"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "notificationContacts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "phone": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "onSeverityAtLeast": {
+                                    "type": "string",
+                                    "enum": [
+                                      "low",
+                                      "medium",
+                                      "high",
+                                      "critical"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "onSeverityAtLeast"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "confirmedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "confirmedByUserId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "summary": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "targets",
+                            "rulesOfEngagement",
+                            "testWindows",
+                            "notificationContacts",
+                            "summary"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      },
+      "put": {
+        "operationId": "secu_engagement_scope_put",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Replace structured scope definition. Server vergibt fehlende IDs, behält bestehende. summary aktualisiert parallel das Markdown-Feld scopeSummary.",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "targets": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "domain",
+                                      "subdomain_pattern",
+                                      "ip",
+                                      "ip_range",
+                                      "url",
+                                      "app",
+                                      "email",
+                                      "person",
+                                      "other"
+                                    ]
+                                  },
+                                  "value": {
+                                    "type": "string"
+                                  },
+                                  "rule": {
+                                    "type": "string",
+                                    "enum": [
+                                      "in_scope",
+                                      "out_of_scope"
+                                    ]
+                                  },
+                                  "notes": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "kind",
+                                  "value",
+                                  "rule",
+                                  "notes"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "rulesOfEngagement": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "must",
+                                      "should",
+                                      "info"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "text",
+                                  "severity"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "testWindows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "timezone": {
+                                    "type": "string"
+                                  },
+                                  "daysOfWeek": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "fromTime": {
+                                    "type": "string"
+                                  },
+                                  "untilTime": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "timezone",
+                                  "daysOfWeek",
+                                  "fromTime",
+                                  "untilTime"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "notificationContacts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "phone": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "onSeverityAtLeast": {
+                                    "type": "string",
+                                    "enum": [
+                                      "low",
+                                      "medium",
+                                      "high",
+                                      "critical"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "onSeverityAtLeast"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "confirmedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "confirmedByUserId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "summary": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "targets",
+                            "rulesOfEngagement",
+                            "testWindows",
+                            "notificationContacts",
+                            "summary"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 8192
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "targets": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 64
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "domain",
+                            "subdomain_pattern",
+                            "ip",
+                            "ip_range",
+                            "url",
+                            "app",
+                            "email",
+                            "person",
+                            "other"
+                          ]
+                        },
+                        "value": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "rule": {
+                          "type": "string",
+                          "enum": [
+                            "in_scope",
+                            "out_of_scope"
+                          ]
+                        },
+                        "notes": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2048
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "value",
+                        "rule"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "rulesOfEngagement": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 64
+                        },
+                        "text": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        "severity": {
+                          "type": "string",
+                          "enum": [
+                            "must",
+                            "should",
+                            "info"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "severity"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "testWindows": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 64
+                        },
+                        "timezone": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "daysOfWeek": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          }
+                        },
+                        "fromTime": {
+                          "type": "string",
+                          "pattern": "^\\d{2}:\\d{2}$"
+                        },
+                        "untilTime": {
+                          "type": "string",
+                          "pattern": "^\\d{2}:\\d{2}$"
+                        }
+                      },
+                      "required": [
+                        "timezone",
+                        "daysOfWeek",
+                        "fromTime",
+                        "untilTime"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "notificationContacts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 64
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "email": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "email"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "phone": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 64
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "onSeverityAtLeast": {
+                          "type": "string",
+                          "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "critical"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "onSeverityAtLeast"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "confirmed": {
+                    "type": "boolean"
+                  }
+                },
                 "additionalProperties": false
               }
             }
@@ -10147,7 +12754,7 @@
         "tags": [
           "secu-engagements"
         ],
-        "summary": "Phase 2.7 — Listet OSINT-Signal-Chain-Logs (manuelle person_full-Trigger + Auto-Chains)",
+        "summary": "Listet OSINT-Signal-Chain-Logs (paginiert, neueste zuerst)",
         "responses": {
           "200": {
             "description": "JSON response",
@@ -10172,61 +12779,244 @@
                     "data": {
                       "anyOf": [
                         {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "integer"
-                              },
-                              "engagementId": {
-                                "type": "integer"
-                              },
-                              "rootEntityId": {
-                                "anyOf": [
-                                  {
+                          "type": "object",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
                                     "type": "integer"
                                   },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "triggeredBy": {
-                                "type": "string"
-                              },
-                              "signalChain": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "additionalProperties": {}
-                                }
-                              },
-                              "startedAt": {
-                                "type": "string"
-                              },
-                              "finishedAt": {
-                                "anyOf": [
-                                  {
+                                  "engagementId": {
+                                    "type": "integer"
+                                  },
+                                  "rootEntityId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "triggeredBy": {
                                     "type": "string"
                                   },
-                                  {
-                                    "type": "null"
+                                  "signalChain": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "additionalProperties": {}
+                                    }
+                                  },
+                                  "startedAt": {
+                                    "type": "string"
+                                  },
+                                  "finishedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
                                   }
-                                ]
+                                },
+                                "required": [
+                                  "id",
+                                  "engagementId",
+                                  "rootEntityId",
+                                  "triggeredBy",
+                                  "signalChain",
+                                  "startedAt",
+                                  "finishedAt"
+                                ],
+                                "additionalProperties": false
                               }
                             },
-                            "required": [
-                              "id",
-                              "engagementId",
-                              "rootEntityId",
-                              "triggeredBy",
-                              "signalChain",
-                              "startedAt",
-                              "finishedAt"
-                            ],
-                            "additionalProperties": false
-                          }
+                            "total": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "offset": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "items",
+                            "total",
+                            "limit",
+                            "offset"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/entities/username": {
+      "post": {
+        "operationId": "secu_engagement_osint_username_link",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Lege eine username-Entity an, optional an Person hängen, OSINT-Auto-Chain greift",
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "entity": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "asset_domain",
+                                    "asset_subdomain",
+                                    "asset_ip",
+                                    "asset_host",
+                                    "asset_url",
+                                    "person",
+                                    "organization",
+                                    "location",
+                                    "credential_ref",
+                                    "document",
+                                    "email_address",
+                                    "username",
+                                    "phone_number",
+                                    "social_account",
+                                    "infrastructure_provider"
+                                  ]
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "canonicalKey": {
+                                  "type": "string"
+                                },
+                                "data": {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                },
+                                "firstSeenAt": {
+                                  "type": "string"
+                                },
+                                "lastSeenAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "displayName",
+                                "canonicalKey",
+                                "data",
+                                "firstSeenAt",
+                                "lastSeenAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "engagementEntityId": {
+                              "type": "integer"
+                            },
+                            "relationshipId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "engagementEntityId",
+                            "relationshipId"
+                          ],
+                          "additionalProperties": false
                         },
                         {
                           "type": "null"
@@ -10255,6 +13045,417 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "platform": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "personId": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "username"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/entities/phone": {
+      "post": {
+        "operationId": "secu_engagement_osint_phone_link",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Lege eine phone_number-Entity an, optional an Person hängen",
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "entity": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "asset_domain",
+                                    "asset_subdomain",
+                                    "asset_ip",
+                                    "asset_host",
+                                    "asset_url",
+                                    "person",
+                                    "organization",
+                                    "location",
+                                    "credential_ref",
+                                    "document",
+                                    "email_address",
+                                    "username",
+                                    "phone_number",
+                                    "social_account",
+                                    "infrastructure_provider"
+                                  ]
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "canonicalKey": {
+                                  "type": "string"
+                                },
+                                "data": {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                },
+                                "firstSeenAt": {
+                                  "type": "string"
+                                },
+                                "lastSeenAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "displayName",
+                                "canonicalKey",
+                                "data",
+                                "firstSeenAt",
+                                "lastSeenAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "engagementEntityId": {
+                              "type": "integer"
+                            },
+                            "relationshipId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "engagementEntityId",
+                            "relationshipId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 64
+                  },
+                  "personId": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "phone"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/engagements/:id/entities/social": {
+      "post": {
+        "operationId": "secu_engagement_osint_social_link",
+        "tags": [
+          "secu-engagements"
+        ],
+        "summary": "Lege eine social_account-Entity an, optional an Person hängen",
+        "responses": {
+          "201": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "entity": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "asset_domain",
+                                    "asset_subdomain",
+                                    "asset_ip",
+                                    "asset_host",
+                                    "asset_url",
+                                    "person",
+                                    "organization",
+                                    "location",
+                                    "credential_ref",
+                                    "document",
+                                    "email_address",
+                                    "username",
+                                    "phone_number",
+                                    "social_account",
+                                    "infrastructure_provider"
+                                  ]
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "canonicalKey": {
+                                  "type": "string"
+                                },
+                                "data": {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                },
+                                "firstSeenAt": {
+                                  "type": "string"
+                                },
+                                "lastSeenAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "displayName",
+                                "canonicalKey",
+                                "data",
+                                "firstSeenAt",
+                                "lastSeenAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "engagementEntityId": {
+                              "type": "integer"
+                            },
+                            "relationshipId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "entity",
+                            "engagementEntityId",
+                            "relationshipId"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "platform": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "handle": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "profileUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uri",
+                        "maxLength": 512
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "personId": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "platform",
+                  "handle"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "security": [
           {
             "frontendBearer": []
@@ -12020,7 +15221,7 @@
         "tags": [
           "secu-entities"
         ],
-        "summary": "List relationships incident to an entity",
+        "summary": "List relationships incident to an entity (optional engagementId-Filter, Sprint 2)",
         "responses": {
           "200": {
             "description": "JSON response",
@@ -12221,6 +15422,15 @@
             "name": "id",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "engagementId",
+            "in": "query",
+            "required": false,
             "schema": {
               "type": "integer",
               "exclusiveMinimum": 0
@@ -16913,7 +20123,7 @@
         "tags": [
           "secu-hints"
         ],
-        "summary": "List operator hints attached to an engagement (Sprint 1, OSINT seed material)",
+        "summary": "List operator hints attached to an engagement (filterbar nach status/slot, Sprint 2 Workflow-Lifecycle)",
         "responses": {
           "200": {
             "description": "JSON response",
@@ -16984,6 +20194,44 @@
                                   }
                                 ]
                               },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "converted",
+                                  "dismissed"
+                                ]
+                              },
+                              "convertedToEntityId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "closedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "closedBy": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "createdBy": {
                                 "anyOf": [
                                   {
@@ -17015,6 +20263,10 @@
                               "value",
                               "source",
                               "notes",
+                              "status",
+                              "convertedToEntityId",
+                              "closedAt",
+                              "closedBy",
                               "createdBy",
                               "createdAt",
                               "updatedAt"
@@ -17086,6 +20338,101 @@
             "schema": {
               "type": "integer",
               "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "converted",
+                "dismissed"
+              ],
+              "x-ui": {
+                "label": "Status",
+                "widget": "select",
+                "group": "Hint",
+                "options": [
+                  {
+                    "value": "pending",
+                    "label": "Offen",
+                    "description": "Wird von Workern als Seed konsumiert",
+                    "color": "info"
+                  },
+                  {
+                    "value": "converted",
+                    "label": "Übernommen",
+                    "description": "Wurde in eine Entity überführt",
+                    "color": "success"
+                  },
+                  {
+                    "value": "dismissed",
+                    "label": "Verworfen",
+                    "description": "Vom Operator als irrelevant markiert",
+                    "color": "neutral"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "slot",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "owner_name",
+                "owner_city",
+                "owner_company",
+                "owner_known_email",
+                "owner_known_username",
+                "owner_alt_domain",
+                "industry",
+                "free_text"
+              ],
+              "x-ui": {
+                "label": "Slot",
+                "widget": "select",
+                "group": "Hint",
+                "options": [
+                  {
+                    "value": "owner_name",
+                    "label": "Inhaber-Name"
+                  },
+                  {
+                    "value": "owner_city",
+                    "label": "Stadt"
+                  },
+                  {
+                    "value": "owner_company",
+                    "label": "Firma"
+                  },
+                  {
+                    "value": "owner_known_email",
+                    "label": "Bekannte E-Mail"
+                  },
+                  {
+                    "value": "owner_known_username",
+                    "label": "Bekannter Username"
+                  },
+                  {
+                    "value": "owner_alt_domain",
+                    "label": "Alternative Domain"
+                  },
+                  {
+                    "value": "industry",
+                    "label": "Branche"
+                  },
+                  {
+                    "value": "free_text",
+                    "label": "Freitext"
+                  }
+                ]
+              }
             }
           }
         ],
@@ -17172,6 +20519,44 @@
                                   }
                                 ]
                               },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "converted",
+                                  "dismissed"
+                                ]
+                              },
+                              "convertedToEntityId": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "closedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "closedBy": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "createdBy": {
                                 "anyOf": [
                                   {
@@ -17203,6 +20588,10 @@
                               "value",
                               "source",
                               "notes",
+                              "status",
+                              "convertedToEntityId",
+                              "closedAt",
+                              "closedBy",
                               "createdBy",
                               "createdAt",
                               "updatedAt"
@@ -17484,6 +20873,44 @@
                                 }
                               ]
                             },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "pending",
+                                "converted",
+                                "dismissed"
+                              ]
+                            },
+                            "convertedToEntityId": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "closedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "closedBy": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "createdBy": {
                               "anyOf": [
                                 {
@@ -17515,6 +20942,10 @@
                             "value",
                             "source",
                             "notes",
+                            "status",
+                            "convertedToEntityId",
+                            "closedAt",
+                            "closedBy",
                             "createdBy",
                             "createdAt",
                             "updatedAt"
@@ -17645,6 +21076,50 @@
                       "widget": "textarea",
                       "group": "Hint"
                     }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "converted",
+                      "dismissed"
+                    ],
+                    "x-ui": {
+                      "label": "Status",
+                      "widget": "select",
+                      "group": "Hint",
+                      "options": [
+                        {
+                          "value": "pending",
+                          "label": "Offen",
+                          "description": "Wird von Workern als Seed konsumiert",
+                          "color": "info"
+                        },
+                        {
+                          "value": "converted",
+                          "label": "Übernommen",
+                          "description": "Wurde in eine Entity überführt",
+                          "color": "success"
+                        },
+                        {
+                          "value": "dismissed",
+                          "label": "Verworfen",
+                          "description": "Vom Operator als irrelevant markiert",
+                          "color": "neutral"
+                        }
+                      ]
+                    }
+                  },
+                  "convertedToEntityId": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -18565,6 +22040,486 @@
                 "widget": "integer",
                 "group": "Graph"
               }
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/intelligence/identities/:personId": {
+      "get": {
+        "operationId": "secu_intel_identity_bundle",
+        "tags": [
+          "secu-intelligence"
+        ],
+        "summary": "Identity-Bundle: Person + Aliases + Engagements + globale Findings + Auth-Decisions",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "person": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "integer"
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "asset_domain",
+                                    "asset_subdomain",
+                                    "asset_ip",
+                                    "asset_host",
+                                    "asset_url",
+                                    "person",
+                                    "organization",
+                                    "location",
+                                    "credential_ref",
+                                    "document",
+                                    "email_address",
+                                    "username",
+                                    "phone_number",
+                                    "social_account",
+                                    "infrastructure_provider"
+                                  ]
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "canonicalKey": {
+                                  "type": "string"
+                                },
+                                "data": {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                },
+                                "firstSeenAt": {
+                                  "type": "string"
+                                },
+                                "lastSeenAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "kind",
+                                "displayName",
+                                "canonicalKey",
+                                "data",
+                                "firstSeenAt",
+                                "lastSeenAt"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "aliases": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "entity": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "asset_domain",
+                                          "asset_subdomain",
+                                          "asset_ip",
+                                          "asset_host",
+                                          "asset_url",
+                                          "person",
+                                          "organization",
+                                          "location",
+                                          "credential_ref",
+                                          "document",
+                                          "email_address",
+                                          "username",
+                                          "phone_number",
+                                          "social_account",
+                                          "infrastructure_provider"
+                                        ]
+                                      },
+                                      "displayName": {
+                                        "type": "string"
+                                      },
+                                      "data": {
+                                        "type": "object",
+                                        "additionalProperties": {}
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "kind",
+                                      "displayName",
+                                      "data"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "relationshipId": {
+                                    "type": "integer"
+                                  },
+                                  "relationKind": {
+                                    "type": "string"
+                                  },
+                                  "confidence": {
+                                    "type": "integer"
+                                  },
+                                  "addedAt": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "entity",
+                                  "relationshipId",
+                                  "relationKind",
+                                  "confidence",
+                                  "addedAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "engagements": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "integer"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "slug": {
+                                    "type": "string"
+                                  },
+                                  "role": {
+                                    "type": "string",
+                                    "enum": [
+                                      "primary_target",
+                                      "in_scope",
+                                      "out_of_scope",
+                                      "pivot",
+                                      "context"
+                                    ]
+                                  },
+                                  "findingCount": {
+                                    "type": "integer"
+                                  },
+                                  "findingsBySeverity": {
+                                    "type": "object",
+                                    "properties": {
+                                      "critical": {
+                                        "type": "integer"
+                                      },
+                                      "high": {
+                                        "type": "integer"
+                                      },
+                                      "medium": {
+                                        "type": "integer"
+                                      },
+                                      "low": {
+                                        "type": "integer"
+                                      },
+                                      "info": {
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "critical",
+                                      "high",
+                                      "medium",
+                                      "low",
+                                      "info"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "lastActivityAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "slug",
+                                  "role",
+                                  "findingCount",
+                                  "findingsBySeverity",
+                                  "lastActivityAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "globalFindings": {
+                              "type": "object",
+                              "properties": {
+                                "total": {
+                                  "type": "integer"
+                                },
+                                "bySeverity": {
+                                  "type": "object",
+                                  "properties": {
+                                    "critical": {
+                                      "type": "integer"
+                                    },
+                                    "high": {
+                                      "type": "integer"
+                                    },
+                                    "medium": {
+                                      "type": "integer"
+                                    },
+                                    "low": {
+                                      "type": "integer"
+                                    },
+                                    "info": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "critical",
+                                    "high",
+                                    "medium",
+                                    "low",
+                                    "info"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "byStatus": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "recent": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "severity": {
+                                        "type": "string",
+                                        "enum": [
+                                          "critical",
+                                          "high",
+                                          "medium",
+                                          "low",
+                                          "info"
+                                        ],
+                                        "x-ui": {
+                                          "label": "Schweregrad",
+                                          "widget": "select",
+                                          "group": "Filter",
+                                          "options": [
+                                            {
+                                              "value": "critical",
+                                              "label": "Kritisch",
+                                              "color": "danger"
+                                            },
+                                            {
+                                              "value": "high",
+                                              "label": "Hoch",
+                                              "color": "danger"
+                                            },
+                                            {
+                                              "value": "medium",
+                                              "label": "Mittel",
+                                              "color": "warning"
+                                            },
+                                            {
+                                              "value": "low",
+                                              "label": "Niedrig",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "info",
+                                              "label": "Info",
+                                              "color": "neutral"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "engagementId": {
+                                        "type": "integer"
+                                      },
+                                      "createdAt": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "title",
+                                      "severity",
+                                      "engagementId",
+                                      "createdAt"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                }
+                              },
+                              "required": [
+                                "total",
+                                "bySeverity",
+                                "byStatus",
+                                "recent"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "authorizations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "engagementId": {
+                                    "type": "integer"
+                                  },
+                                  "scope": {
+                                    "type": "string",
+                                    "enum": [
+                                      "passive_only",
+                                      "active_safe",
+                                      "active_intrusive"
+                                    ]
+                                  },
+                                  "decision": {
+                                    "type": "object",
+                                    "properties": {
+                                      "activeSafeAllowed": {
+                                        "type": "boolean"
+                                      },
+                                      "activeIntrusiveAllowed": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "activeSafeAllowed",
+                                      "activeIntrusiveAllowed"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "engagementId",
+                                  "scope",
+                                  "decision"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "person",
+                            "aliases",
+                            "engagements",
+                            "globalFindings",
+                            "authorizations"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "personId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
             }
           }
         ],

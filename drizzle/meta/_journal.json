@@ -15,6 +15,13 @@
       "when": 1778274797106,
       "tag": "0001_bitter_kang",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778289967768,
+      "tag": "0002_rare_thanos",
+      "breakpoints": true
     }
   ]
 }

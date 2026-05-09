@@ -250,6 +250,116 @@ export const engagementNoteBodySchema = z
     })
     .strict();
 
+// Sprint 2 (Backend-Report 2026-05-09 Block 2) — List/Patch/Delete Schemas
+
+export const engagementNoteListQuerySchema = z
+    .object({
+        entityId: z.coerce.number().int().positive().optional(),
+        limit: z.coerce.number().int().min(1).max(500).optional(),
+        offset: z.coerce.number().int().min(0).optional(),
+        sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
+        order: z.enum(["asc", "desc"]).optional(),
+    })
+    .strict();
+
+export const engagementNotePatchBodySchema = z
+    .object({
+        title: z.string().max(256).nullable().optional(),
+        body: z.string().min(1).max(65536).optional(),
+        entityId: z.number().int().positive().nullable().optional(),
+    })
+    .strict()
+    .refine((v) => v.title !== undefined || v.body !== undefined || v.entityId !== undefined, {
+        message: "At least one of title/body/entityId must be provided",
+    });
+
+export const engagementNoteParamsSchema = z.object({
+    id: z.coerce.number().int().positive(),
+    noteId: z.coerce.number().int().positive(),
+});
+
+// Sprint 2 (Backend-Report Block 4) — Strukturierte Scope
+
+const scopeTargetKindEnum = z.enum([
+    "domain",
+    "subdomain_pattern",
+    "ip",
+    "ip_range",
+    "url",
+    "app",
+    "email",
+    "person",
+    "other",
+]);
+const scopeRuleSeverityEnum = z.enum(["must", "should", "info"]);
+const scopeContactSeverityEnum = z.enum(["low", "medium", "high", "critical"]);
+
+const scopeTargetSchema = z.object({
+    id: z.string().max(64).optional(),
+    kind: scopeTargetKindEnum,
+    value: z.string().min(1).max(512),
+    rule: z.enum(["in_scope", "out_of_scope"]),
+    notes: z.string().max(2048).nullable().optional(),
+}).strict();
+
+const scopeRoeSchema = z.object({
+    id: z.string().max(64).optional(),
+    text: z.string().min(1).max(2048),
+    severity: scopeRuleSeverityEnum,
+}).strict();
+
+const scopeWindowSchema = z.object({
+    id: z.string().max(64).optional(),
+    timezone: z.string().min(1).max(64),
+    daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7),
+    fromTime: z.string().regex(/^\d{2}:\d{2}$/),
+    untilTime: z.string().regex(/^\d{2}:\d{2}$/),
+}).strict();
+
+const scopeContactSchema = z.object({
+    id: z.string().max(64).optional(),
+    name: z.string().min(1).max(256),
+    email: z.string().email().nullable().optional(),
+    phone: z.string().max(64).nullable().optional(),
+    onSeverityAtLeast: scopeContactSeverityEnum,
+}).strict();
+
+export const engagementScopePutBodySchema = z.object({
+    summary: z.string().max(8192).nullable().optional(),
+    targets: z.array(scopeTargetSchema).max(500).optional(),
+    rulesOfEngagement: z.array(scopeRoeSchema).max(200).optional(),
+    testWindows: z.array(scopeWindowSchema).max(20).optional(),
+    notificationContacts: z.array(scopeContactSchema).max(20).optional(),
+    confirmed: z.boolean().optional(),
+}).strict();
+
+// Sprint 2 (Backend-Report Block 5) — Alias-Linking-Bodies
+
+export const osintUsernameEntityBodySchema = z.object({
+    username: z.string().min(1).max(256),
+    platform: z.string().max(64).nullable().optional(),
+    personId: z.number().int().positive().nullable().optional(),
+}).strict();
+
+export const osintPhoneEntityBodySchema = z.object({
+    phone: z.string().min(3).max(64),
+    personId: z.number().int().positive().nullable().optional(),
+}).strict();
+
+export const osintSocialEntityBodySchema = z.object({
+    platform: z.string().min(1).max(64),
+    handle: z.string().min(1).max(256),
+    profileUrl: z.string().url().max(512).nullable().optional(),
+    personId: z.number().int().positive().nullable().optional(),
+}).strict();
+
+// Sprint 2 — Signal-Chain List Pagination
+
+export const engagementSignalChainsQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(500).optional(),
+    offset: z.coerce.number().int().min(0).optional(),
+}).strict();
+
 // Phase 2.7 — OSINT-Specific endpoints
 export const osintEmailEntityBodySchema = z
     .object({
@@ -316,4 +426,11 @@ export type EngagementUpdateBody = z.infer<typeof engagementUpdateBodySchema>;
 export type EngagementListQuery = z.infer<typeof engagementListQuerySchema>;
 export type EngagementEntityLinkBody = z.infer<typeof engagementEntityLinkBodySchema>;
 export type EngagementNoteBody = z.infer<typeof engagementNoteBodySchema>;
+export type EngagementNoteListQuery = z.infer<typeof engagementNoteListQuerySchema>;
+export type EngagementNotePatchBody = z.infer<typeof engagementNotePatchBodySchema>;
+export type EngagementScopePutBody = z.infer<typeof engagementScopePutBodySchema>;
+export type OsintUsernameEntityBody = z.infer<typeof osintUsernameEntityBodySchema>;
+export type OsintPhoneEntityBody = z.infer<typeof osintPhoneEntityBodySchema>;
+export type OsintSocialEntityBody = z.infer<typeof osintSocialEntityBodySchema>;
+export type EngagementSignalChainsQuery = z.infer<typeof engagementSignalChainsQuerySchema>;
 export type GrantAuthBody = z.infer<typeof grantAuthBodySchema>;

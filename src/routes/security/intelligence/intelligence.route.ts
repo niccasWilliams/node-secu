@@ -10,6 +10,7 @@ import { intelligenceController } from "./intelligence.controller";
 import {
     crossEngagementHitsQuerySchema,
     crossEngagementHitsResponseSchema,
+    identityBundleParamsSchema,
     neighborhoodParamsSchema,
     neighborhoodQuerySchema,
     neighborhoodResponseSchema,
@@ -19,7 +20,7 @@ import {
     techUsagesQuerySchema,
     techUsagesResponseSchema,
 } from "./intelligence.dto";
-import { noDataSchema } from "../security-response.dto";
+import { identityBundleSchema, noDataSchema } from "../security-response.dto";
 
 const c = createContractRouter("/intelligence", { tags: ["secu-intelligence"] });
 const router: Router = c.router;
@@ -79,6 +80,23 @@ c.get(
         ],
     }),
     intelligenceController.neighborhood.bind(intelligenceController),
+);
+
+// Sprint 2 (Backend-Report 2026-05-09 Block 5) — Identity-Bundle.
+c.get(
+    "/identities/:personId",
+    validate({ params: identityBundleParamsSchema }),
+    contract({
+        operationId: "secu_intel_identity_bundle",
+        summary: "Identity-Bundle: Person + Aliases + Engagements + globale Findings + Auth-Decisions",
+        auth: { type: "frontend_bearer_http" },
+        request: { params: identityBundleParamsSchema },
+        responses: [
+            { kind: "json", status: 200, data: identityBundleSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
+    }),
+    intelligenceController.identityBundle.bind(intelligenceController),
 );
 
 export default router;

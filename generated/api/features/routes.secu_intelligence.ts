@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T21:27:24.259Z
+// Generated at: 2026-05-09T01:32:39.222Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuIntelCrossEngagementHitsParams = undefined;
@@ -110,6 +110,77 @@ export type SecuIntelEntityNeighborhoodResponseData = {
 };
 export type SecuIntelEntityNeighborhoodResponse = import("../types").ApiEnvelope<SecuIntelEntityNeighborhoodResponseData>;
 
+export type SecuIntelIdentityBundleParams = {
+  personId: number;
+};
+export type SecuIntelIdentityBundleQuery = undefined;
+export type SecuIntelIdentityBundleBody = undefined;
+export type SecuIntelIdentityBundleResponseData = {
+  person: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+  aliases: Array<{
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  data: Record<string, any>;
+};
+  relationshipId: number;
+  relationKind: string;
+  confidence: number;
+  addedAt: string;
+}>;
+  engagements: Array<{
+  id: number;
+  name: string;
+  slug: string;
+  role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context";
+  findingCount: number;
+  findingsBySeverity: {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+};
+  lastActivityAt: string | null;
+}>;
+  globalFindings: {
+  total: number;
+  bySeverity: {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+};
+  byStatus: Record<string, number>;
+  recent: Array<{
+  id: number;
+  title: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  engagementId: number;
+  createdAt: string;
+}>;
+};
+  authorizations: Array<{
+  engagementId: number;
+  scope: "passive_only" | "active_safe" | "active_intrusive";
+  decision: {
+  activeSafeAllowed: boolean;
+  activeIntrusiveAllowed: boolean;
+};
+}>;
+};
+export type SecuIntelIdentityBundleResponse = import("../types").ApiEnvelope<SecuIntelIdentityBundleResponseData>;
+
 export const apiRoutes_secu_intelligence = {
   "secu_intel_cross_engagement_hits": {
     method: "GET",
@@ -177,6 +248,23 @@ export const apiRoutes_secu_intelligence = {
       body: SecuIntelEntityNeighborhoodBody;
       response: SecuIntelEntityNeighborhoodResponse;
       responseData: SecuIntelEntityNeighborhoodResponseData;
+    },
+  },
+  "secu_intel_identity_bundle": {
+    method: "GET",
+    path: "/intelligence/identities/:personId",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-intelligence"],
+      summary: "Identity-Bundle: Person + Aliases + Engagements + globale Findings + Auth-Decisions",
+      validated: {"params":true,"query":false,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuIntelIdentityBundleParams;
+      query: SecuIntelIdentityBundleQuery;
+      body: SecuIntelIdentityBundleBody;
+      response: SecuIntelIdentityBundleResponse;
+      responseData: SecuIntelIdentityBundleResponseData;
     },
   },
 } as const;

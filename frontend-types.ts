@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T21:27:22.916Z
+// Generated at: 2026-05-09T01:32:37.806Z
 // Run `npm run types:generate` to regenerate this file
 
 // ============================================================================
@@ -34,6 +34,7 @@ export type WorkerProvider = 'local' | 'hetzner' | 'aws' | 'digitalocean' | 'doc
 export type RuleTrigger = 'entity.created' | 'entity.updated' | 'finding.created' | 'playbook_run.completed' | 'schedule';
 export type RuleAction = 'start_playbook' | 'tag_entity' | 'notify_boss' | 'create_finding';
 export type EngagementHintSlot = 'owner_name' | 'owner_city' | 'owner_company' | 'owner_known_email' | 'owner_known_username' | 'owner_alt_domain' | 'industry' | 'free_text';
+export type EngagementHintStatus = 'pending' | 'converted' | 'dismissed';
 
 // ============================================================================
 // BASE APP TYPES (schema.ts)
@@ -540,6 +541,16 @@ export type PaginatedResult<T> = {
 // FEATURE TYPES (individual schema)
 // ============================================================================
 
+export type ScopeTargetKind = | "domain"
+    | "subdomain_pattern"
+    | "ip"
+    | "ip_range"
+    | "url"
+    | "app"
+    | "email"
+    | "person"
+    | "other";
+
 export type Engagement = {
   id: number;
   name: string;
@@ -650,6 +661,7 @@ export type EngagementHint = {
   value: string;
   source: string | null;
   notes: string | null;
+  closedBy: number | null;
   createdBy: number | null;
   createdAt: Date;
   updatedAt: Date | null;
@@ -661,6 +673,7 @@ export type NewEngagementHint = {
   value: string;
   source?: string | null;
   notes?: string | null;
+  closedBy?: number | null;
   createdBy?: number | null;
   createdAt?: Date;
   updatedAt?: Date | null;
@@ -791,6 +804,7 @@ export type Artifact = {
   redacted: boolean;
   capturedAt: Date;
   createdBy: number | null;
+  updatedBy: number | null;
 };
 
 export type NewArtifact = {
@@ -806,6 +820,7 @@ export type NewArtifact = {
   redacted?: boolean;
   capturedAt?: Date;
   createdBy?: number | null;
+  updatedBy?: number | null;
 };
 
 export type CommandHistoryEntry = {
@@ -1057,6 +1072,14 @@ export type EngagementGraph = {
             entityId: number;
             role: EngagementEntityRole | null;
             tags: string[];
+            /** Globaler Erst-Beobachtungs-Zeitpunkt der Entity (entities.first_seen_at, ISO). */
+            firstSeenAt: string;
+            /** Letzter Tatsachen-Touch (entities.last_seen_at, ISO). */
+            lastSeenAt: string;
+            /** Wann wurde die Entity in dieses spezifische Engagement gelinkt (engagement_entities.added_at, ISO). */
+            linkedAt: string;
+            /** Erste 8 Zeichen der Provenance-Hint, falls vorhanden — gibt FE einen ID-Pivot. */
+            provenance?: { speculative: boolean; confidence: number } | null;
         };
     }>;
     edges: Array<{
@@ -1066,6 +1089,17 @@ export type EngagementGraph = {
             target: string;
             kind: string;
             confidence: number;
+            /** Erst-Beobachtung der Relation (entity_relationships.first_observed_at, ISO). */
+            firstObservedAt: string;
+            /** Letzte Bestätigung (entity_relationships.last_observed_at, ISO). */
+            lastObservedAt: string;
+            /** "manual" | "recon_<tool>" | "osint_<source>". Cytoscape nutzt `source` für Node-Edge-Source — daher umbenannt. */
+            relationshipSource: string;
+            /** Provenance-Pointer für „warum existiert dieser Pfad?"-Tooltip. */
+            discoveredBy: {
+                kind: "worker_run" | "playbook_run" | "manual" | "signal_chain";
+                refId: number | null;
+            } | null;
         };
     }>;
 };

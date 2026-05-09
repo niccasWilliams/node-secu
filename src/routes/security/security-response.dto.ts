@@ -103,6 +103,61 @@ export const okSchema = z.object({ ok: z.boolean() }).strict();
 export const noDataSchema = z.null();
 export const idSchema = z.object({ id: z.number().int().positive() }).strict();
 
+// Sprint 2 (Backend-Report Block 4) — strukturierte Scope.
+const scopeTargetResponseSchema = z.object({
+    id: z.string(),
+    kind: z.enum([
+        "domain",
+        "subdomain_pattern",
+        "ip",
+        "ip_range",
+        "url",
+        "app",
+        "email",
+        "person",
+        "other",
+    ]),
+    value: z.string(),
+    rule: z.enum(["in_scope", "out_of_scope"]),
+    notes: z.string().nullable(),
+}).strict();
+const scopeRuleResponseSchema = z.object({
+    id: z.string(),
+    text: z.string(),
+    severity: z.enum(["must", "should", "info"]),
+}).strict();
+const scopeWindowResponseSchema = z.object({
+    id: z.string(),
+    timezone: z.string(),
+    daysOfWeek: z.array(z.number().int()),
+    fromTime: z.string(),
+    untilTime: z.string(),
+}).strict();
+const scopeContactResponseSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    email: z.string().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    onSeverityAtLeast: z.enum(["low", "medium", "high", "critical"]),
+}).strict();
+
+export const engagementScopeBodyResponseSchema = z.object({
+    targets: z.array(scopeTargetResponseSchema).optional(),
+    rulesOfEngagement: z.array(scopeRuleResponseSchema).optional(),
+    testWindows: z.array(scopeWindowResponseSchema).optional(),
+    notificationContacts: z.array(scopeContactResponseSchema).optional(),
+    confirmedAt: nullableIsoDate.optional(),
+    confirmedByUserId: z.number().int().nullable().optional(),
+}).strict();
+
+export const engagementScopeResponseSchema = engagementScopeBodyResponseSchema.extend({
+    summary: z.string().nullable(),
+    targets: z.array(scopeTargetResponseSchema),
+    rulesOfEngagement: z.array(scopeRuleResponseSchema),
+    testWindows: z.array(scopeWindowResponseSchema),
+    notificationContacts: z.array(scopeContactResponseSchema),
+});
+
 export const engagementSchema = z.object({
     id: z.number().int(),
     name: z.string(),
@@ -111,6 +166,8 @@ export const engagementSchema = z.object({
     status: engagementStatusSchema,
     ownerUserId: z.number().int().nullable(),
     scopeSummary: z.string().nullable(),
+    /** Sprint 2 — strukturierte Scope-Definition (Block 4). */
+    scope: engagementScopeBodyResponseSchema,
     osintBudgetPerHour: z.number().int(),
     osintMaxHops: z.number().int(),
     createdAt: isoDate,
@@ -186,6 +243,10 @@ export const engagementGraphSchema = z.object({
             entityId: z.number().int(),
             role: engagementEntityRoleSchema.nullable(),
             tags: z.array(z.string()),
+            firstSeenAt: isoDate,
+            lastSeenAt: isoDate,
+            linkedAt: isoDate,
+            provenance: z.object({ speculative: z.boolean(), confidence: z.number() }).nullable().optional(),
         }).strict(),
     }).strict()),
     edges: z.array(z.object({
@@ -195,6 +256,13 @@ export const engagementGraphSchema = z.object({
             target: z.string(),
             kind: z.string(),
             confidence: z.number().int(),
+            firstObservedAt: isoDate,
+            lastObservedAt: isoDate,
+            relationshipSource: z.string(),
+            discoveredBy: z.object({
+                kind: z.enum(["worker_run", "playbook_run", "manual", "signal_chain"]),
+                refId: z.number().int().nullable(),
+            }).nullable(),
         }).strict(),
     }).strict()),
 }).strict();
@@ -495,10 +563,103 @@ export const hintSchema = z.object({
     value: z.string(),
     source: z.string().nullable(),
     notes: z.string().nullable(),
+    /** Sprint 2 (Backend-Report Klärung #4) — Workflow-Status. */
+    status: z.enum(["pending", "converted", "dismissed"]),
+    convertedToEntityId: z.number().int().nullable(),
+    closedAt: nullableIsoDate,
+    closedBy: z.number().int().nullable(),
     createdBy: z.number().int().nullable(),
     createdAt: isoDate,
     updatedAt: nullableIsoDate,
 }).strict();
+
+// Sprint 2 (Backend-Report Block 2) — Note-List-Item.
+export const engagementNoteSchema = z.object({
+    id: z.number().int(),
+    engagementId: z.number().int(),
+    entityId: z.number().int().nullable(),
+    title: z.string().nullable(),
+    body: z.string().nullable(),
+    kind: z.literal("note"),
+    capturedAt: isoDate,
+    updatedAt: nullableIsoDate,
+    createdBy: z.number().int().nullable(),
+    updatedBy: z.number().int().nullable(),
+    entity: z.object({
+        id: z.number().int(),
+        kind: entityKindSchema,
+        displayName: z.string(),
+    }).nullable(),
+}).passthrough(); // passthrough lets us evolve artifacts schema without breaking FE.
+
+export const engagementNoteListResponseSchema = z.array(engagementNoteSchema);
+
+// Sprint 2 (Backend-Report Block 5) — Identity-Bundle.
+export const identityBundleSchema = z.object({
+    person: z.object({
+        id: z.number().int(),
+        kind: entityKindSchema,
+        displayName: z.string(),
+        canonicalKey: z.string(),
+        data: jsonObject,
+        firstSeenAt: isoDate,
+        lastSeenAt: isoDate,
+    }).strict(),
+    aliases: z.array(z.object({
+        entity: z.object({
+            id: z.number().int(),
+            kind: entityKindSchema,
+            displayName: z.string(),
+            data: jsonObject,
+        }).strict(),
+        relationshipId: z.number().int(),
+        relationKind: z.string(),
+        confidence: z.number().int(),
+        addedAt: isoDate,
+    }).strict()),
+    engagements: z.array(z.object({
+        id: z.number().int(),
+        name: z.string(),
+        slug: z.string(),
+        role: engagementEntityRoleSchema,
+        findingCount: z.number().int(),
+        findingsBySeverity: z.object({
+            critical: z.number().int(),
+            high: z.number().int(),
+            medium: z.number().int(),
+            low: z.number().int(),
+            info: z.number().int(),
+        }).strict(),
+        lastActivityAt: nullableIsoDate,
+    }).strict()),
+    globalFindings: z.object({
+        total: z.number().int(),
+        bySeverity: z.object({
+            critical: z.number().int(),
+            high: z.number().int(),
+            medium: z.number().int(),
+            low: z.number().int(),
+            info: z.number().int(),
+        }).strict(),
+        byStatus: z.record(z.string(), z.number().int()),
+        recent: z.array(z.object({
+            id: z.number().int(),
+            title: z.string(),
+            severity: severitySchema,
+            engagementId: z.number().int(),
+            createdAt: isoDate,
+        }).strict()),
+    }).strict(),
+    authorizations: z.array(z.object({
+        engagementId: z.number().int(),
+        scope: authorizationScopeSchema,
+        decision: z.object({
+            activeSafeAllowed: z.boolean(),
+            activeIntrusiveAllowed: z.boolean(),
+        }).strict(),
+    }).strict()),
+}).strict();
+
 
 export const osintEmailLinkResponseSchema = z.object({
     entity: entitySchema,
@@ -514,6 +675,14 @@ export const signalChainLogSchema = z.object({
     signalChain: z.array(jsonObject),
     startedAt: isoDate,
     finishedAt: nullableIsoDate,
+}).strict();
+
+// Sprint 2 (Backend-Report Klärung #2) — Signal-Chain-List Pagination.
+export const signalChainsPagedResponseSchema = z.object({
+    items: z.array(signalChainLogSchema),
+    total: z.number().int(),
+    limit: z.number().int(),
+    offset: z.number().int(),
 }).strict();
 
 export const enrichFullResponseSchema = z.object({

@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-09T00:12:42.760Z
+// Generated at: 2026-05-09T01:32:39.217Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEngagementCreateParams = undefined;
@@ -20,6 +20,36 @@ export type SecuEngagementCreateResponseData = {
   status: "planning" | "active" | "paused" | "completed" | "archived";
   ownerUserId: number | null;
   scopeSummary: string | null;
+  scope: {
+  targets?: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement?: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows?: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts?: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+};
   osintBudgetPerHour: number;
   osintMaxHops: number;
   createdAt: string;
@@ -58,6 +88,36 @@ export type SecuEngagementListResponseData = Array<{
   status: "planning" | "active" | "paused" | "completed" | "archived";
   ownerUserId: number | null;
   scopeSummary: string | null;
+  scope: {
+  targets?: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement?: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows?: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts?: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+};
   osintBudgetPerHour: number;
   osintMaxHops: number;
   createdAt: string;
@@ -92,6 +152,36 @@ export type SecuEngagementGetResponseData = {
   status: "planning" | "active" | "paused" | "completed" | "archived";
   ownerUserId: number | null;
   scopeSummary: string | null;
+  scope: {
+  targets?: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement?: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows?: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts?: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+};
   osintBudgetPerHour: number;
   osintMaxHops: number;
   createdAt: string;
@@ -107,6 +197,13 @@ export type SecuEngagementGetResponseData = {
   entityId: number;
   role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context" | null;
   tags: Array<string>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  linkedAt: string;
+  provenance?: {
+  speculative: boolean;
+  confidence: number;
+} | null;
 };
 }>;
   edges: Array<{
@@ -116,6 +213,13 @@ export type SecuEngagementGetResponseData = {
   target: string;
   kind: string;
   confidence: number;
+  firstObservedAt: string;
+  lastObservedAt: string;
+  relationshipSource: string;
+  discoveredBy: {
+  kind: "worker_run" | "playbook_run" | "manual" | "signal_chain";
+  refId: number | null;
+} | null;
 };
 }>;
 };
@@ -141,6 +245,36 @@ export type SecuEngagementUpdateResponseData = {
   status: "planning" | "active" | "paused" | "completed" | "archived";
   ownerUserId: number | null;
   scopeSummary: string | null;
+  scope: {
+  targets?: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement?: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows?: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts?: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+};
   osintBudgetPerHour: number;
   osintMaxHops: number;
   createdAt: string;
@@ -162,6 +296,36 @@ export type SecuEngagementArchiveResponseData = {
   status: "planning" | "active" | "paused" | "completed" | "archived";
   ownerUserId: number | null;
   scopeSummary: string | null;
+  scope: {
+  targets?: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement?: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows?: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts?: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+};
   osintBudgetPerHour: number;
   osintMaxHops: number;
   createdAt: string;
@@ -185,6 +349,13 @@ export type SecuEngagementGraphResponseData = {
   entityId: number;
   role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context" | null;
   tags: Array<string>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  linkedAt: string;
+  provenance?: {
+  speculative: boolean;
+  confidence: number;
+} | null;
 };
 }>;
   edges: Array<{
@@ -194,6 +365,13 @@ export type SecuEngagementGraphResponseData = {
   target: string;
   kind: string;
   confidence: number;
+  firstObservedAt: string;
+  lastObservedAt: string;
+  relationshipSource: string;
+  discoveredBy: {
+  kind: "worker_run" | "playbook_run" | "manual" | "signal_chain";
+  refId: number | null;
+} | null;
 };
 }>;
 };
@@ -269,6 +447,179 @@ export type SecuEngagementNoteCreateResponseData = {
   id: number;
 };
 export type SecuEngagementNoteCreateResponse = import("../types").ApiEnvelope<SecuEngagementNoteCreateResponseData>;
+
+export type SecuEngagementNotesListParams = {
+  id: number;
+};
+export type SecuEngagementNotesListQuery = {
+  entityId?: number;
+  limit?: number;
+  offset?: number;
+  sortBy?: "createdAt" | "updatedAt";
+  order?: "asc" | "desc";
+};
+export type SecuEngagementNotesListBody = undefined;
+export type SecuEngagementNotesListResponseData = Array<{
+  id: number;
+  engagementId: number;
+  entityId: number | null;
+  title: string | null;
+  body: string | null;
+  kind: "note";
+  capturedAt: string;
+  updatedAt: string | null;
+  createdBy: number | null;
+  updatedBy: number | null;
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+} | null;
+}>;
+export type SecuEngagementNotesListResponse = import("../types").ApiEnvelope<SecuEngagementNotesListResponseData>;
+
+export type SecuEngagementNoteUpdateParams = {
+  id: number;
+  noteId: number;
+};
+export type SecuEngagementNoteUpdateQuery = undefined;
+export type SecuEngagementNoteUpdateBody = {
+  title?: string | null;
+  body?: string;
+  entityId?: number | null;
+};
+export type SecuEngagementNoteUpdateResponseData = {
+  id: number;
+  engagementId: number;
+  entityId: number | null;
+  title: string | null;
+  body: string | null;
+  kind: "note";
+  capturedAt: string;
+  updatedAt: string | null;
+  createdBy: number | null;
+  updatedBy: number | null;
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+} | null;
+};
+export type SecuEngagementNoteUpdateResponse = import("../types").ApiEnvelope<SecuEngagementNoteUpdateResponseData>;
+
+export type SecuEngagementNoteDeleteParams = {
+  id: number;
+  noteId: number;
+};
+export type SecuEngagementNoteDeleteQuery = undefined;
+export type SecuEngagementNoteDeleteBody = undefined;
+export type SecuEngagementNoteDeleteResponseData = null;
+export type SecuEngagementNoteDeleteResponse = import("../types").ApiEnvelope<SecuEngagementNoteDeleteResponseData>;
+
+export type SecuEngagementScopeGetParams = {
+  id: number;
+};
+export type SecuEngagementScopeGetQuery = undefined;
+export type SecuEngagementScopeGetBody = undefined;
+export type SecuEngagementScopeGetResponseData = {
+  targets: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+  summary: string | null;
+};
+export type SecuEngagementScopeGetResponse = import("../types").ApiEnvelope<SecuEngagementScopeGetResponseData>;
+
+export type SecuEngagementScopePutParams = {
+  id: number;
+};
+export type SecuEngagementScopePutQuery = undefined;
+export type SecuEngagementScopePutBody = {
+  summary?: string | null;
+  targets?: Array<{
+  id?: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes?: string | null;
+}>;
+  rulesOfEngagement?: Array<{
+  id?: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows?: Array<{
+  id?: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts?: Array<{
+  id?: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmed?: boolean;
+};
+export type SecuEngagementScopePutResponseData = {
+  targets: Array<{
+  id: string;
+  kind: "domain" | "subdomain_pattern" | "ip" | "ip_range" | "url" | "app" | "email" | "person" | "other";
+  value: string;
+  rule: "in_scope" | "out_of_scope";
+  notes: string | null;
+}>;
+  rulesOfEngagement: Array<{
+  id: string;
+  text: string;
+  severity: "must" | "should" | "info";
+}>;
+  testWindows: Array<{
+  id: string;
+  timezone: string;
+  daysOfWeek: Array<number>;
+  fromTime: string;
+  untilTime: string;
+}>;
+  notificationContacts: Array<{
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  onSeverityAtLeast: "low" | "medium" | "high" | "critical";
+}>;
+  confirmedAt?: string | null;
+  confirmedByUserId?: number | null;
+  summary: string | null;
+};
+export type SecuEngagementScopePutResponse = import("../types").ApiEnvelope<SecuEngagementScopePutResponseData>;
 
 export type SecuEngagementAuthGrantParams = {
   id: number;
@@ -367,9 +718,13 @@ export type SecuEngagementOsintEmailLinkResponse = import("../types").ApiEnvelop
 export type SecuEngagementSignalChainsListParams = {
   id: number;
 };
-export type SecuEngagementSignalChainsListQuery = undefined;
+export type SecuEngagementSignalChainsListQuery = {
+  limit?: number;
+  offset?: number;
+};
 export type SecuEngagementSignalChainsListBody = undefined;
-export type SecuEngagementSignalChainsListResponseData = Array<{
+export type SecuEngagementSignalChainsListResponseData = {
+  items: Array<{
   id: number;
   engagementId: number;
   rootEntityId: number | null;
@@ -378,7 +733,83 @@ export type SecuEngagementSignalChainsListResponseData = Array<{
   startedAt: string;
   finishedAt: string | null;
 }>;
+  total: number;
+  limit: number;
+  offset: number;
+};
 export type SecuEngagementSignalChainsListResponse = import("../types").ApiEnvelope<SecuEngagementSignalChainsListResponseData>;
+
+export type SecuEngagementOsintUsernameLinkParams = {
+  id: number;
+};
+export type SecuEngagementOsintUsernameLinkQuery = undefined;
+export type SecuEngagementOsintUsernameLinkBody = {
+  username: string;
+  platform?: string | null;
+  personId?: number | null;
+};
+export type SecuEngagementOsintUsernameLinkResponseData = {
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+  engagementEntityId: number;
+  relationshipId: number | null;
+};
+export type SecuEngagementOsintUsernameLinkResponse = import("../types").ApiEnvelope<SecuEngagementOsintUsernameLinkResponseData>;
+
+export type SecuEngagementOsintPhoneLinkParams = {
+  id: number;
+};
+export type SecuEngagementOsintPhoneLinkQuery = undefined;
+export type SecuEngagementOsintPhoneLinkBody = {
+  phone: string;
+  personId?: number | null;
+};
+export type SecuEngagementOsintPhoneLinkResponseData = {
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+  engagementEntityId: number;
+  relationshipId: number | null;
+};
+export type SecuEngagementOsintPhoneLinkResponse = import("../types").ApiEnvelope<SecuEngagementOsintPhoneLinkResponseData>;
+
+export type SecuEngagementOsintSocialLinkParams = {
+  id: number;
+};
+export type SecuEngagementOsintSocialLinkQuery = undefined;
+export type SecuEngagementOsintSocialLinkBody = {
+  platform: string;
+  handle: string;
+  profileUrl?: string | null;
+  personId?: number | null;
+};
+export type SecuEngagementOsintSocialLinkResponseData = {
+  entity: {
+  id: number;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  displayName: string;
+  canonicalKey: string;
+  data: Record<string, any>;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+  engagementEntityId: number;
+  relationshipId: number | null;
+};
+export type SecuEngagementOsintSocialLinkResponse = import("../types").ApiEnvelope<SecuEngagementOsintSocialLinkResponseData>;
 
 export const apiRoutes_secu_engagements = {
   "secu_engagement_create": {
@@ -555,6 +986,93 @@ export const apiRoutes_secu_engagements = {
       responseData: SecuEngagementNoteCreateResponseData;
     },
   },
+  "secu_engagement_notes_list": {
+    method: "GET",
+    path: "/engagements/:id/notes",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "List notes (artifact kind=note) of an engagement, optional entity filter + pagination",
+      validated: {"params":true,"query":true,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuEngagementNotesListParams;
+      query: SecuEngagementNotesListQuery;
+      body: SecuEngagementNotesListBody;
+      response: SecuEngagementNotesListResponse;
+      responseData: SecuEngagementNotesListResponseData;
+    },
+  },
+  "secu_engagement_note_update": {
+    method: "PATCH",
+    path: "/engagements/:id/notes/:noteId",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Patch an existing note (title/body/entity link)",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEngagementNoteUpdateParams;
+      query: SecuEngagementNoteUpdateQuery;
+      body: SecuEngagementNoteUpdateBody;
+      response: SecuEngagementNoteUpdateResponse;
+      responseData: SecuEngagementNoteUpdateResponseData;
+    },
+  },
+  "secu_engagement_note_delete": {
+    method: "DELETE",
+    path: "/engagements/:id/notes/:noteId",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Delete a note from an engagement",
+      validated: {"params":true,"query":false,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuEngagementNoteDeleteParams;
+      query: SecuEngagementNoteDeleteQuery;
+      body: SecuEngagementNoteDeleteBody;
+      response: SecuEngagementNoteDeleteResponse;
+      responseData: SecuEngagementNoteDeleteResponseData;
+    },
+  },
+  "secu_engagement_scope_get": {
+    method: "GET",
+    path: "/engagements/:id/scope",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Get structured scope definition (targets/RoE/test-windows/contacts)",
+      validated: {"params":true,"query":false,"body":false},
+    },
+    types: null as unknown as {
+      params: SecuEngagementScopeGetParams;
+      query: SecuEngagementScopeGetQuery;
+      body: SecuEngagementScopeGetBody;
+      response: SecuEngagementScopeGetResponse;
+      responseData: SecuEngagementScopeGetResponseData;
+    },
+  },
+  "secu_engagement_scope_put": {
+    method: "PUT",
+    path: "/engagements/:id/scope",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Replace structured scope definition. Server vergibt fehlende IDs, behält bestehende. summary aktualisiert parallel das Markdown-Feld scopeSummary.",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEngagementScopePutParams;
+      query: SecuEngagementScopePutQuery;
+      body: SecuEngagementScopePutBody;
+      response: SecuEngagementScopePutResponse;
+      responseData: SecuEngagementScopePutResponseData;
+    },
+  },
   "secu_engagement_auth_grant": {
     method: "POST",
     path: "/engagements/:id/authorizations",
@@ -631,8 +1149,8 @@ export const apiRoutes_secu_engagements = {
     auth: {"type":"frontend_bearer_http"},
     meta: {
       tags: ["secu-engagements"],
-      summary: "Phase 2.7 — Listet OSINT-Signal-Chain-Logs (manuelle person_full-Trigger + Auto-Chains)",
-      validated: {"params":true,"query":false,"body":false},
+      summary: "Listet OSINT-Signal-Chain-Logs (paginiert, neueste zuerst)",
+      validated: {"params":true,"query":true,"body":false},
     },
     types: null as unknown as {
       params: SecuEngagementSignalChainsListParams;
@@ -640,6 +1158,60 @@ export const apiRoutes_secu_engagements = {
       body: SecuEngagementSignalChainsListBody;
       response: SecuEngagementSignalChainsListResponse;
       responseData: SecuEngagementSignalChainsListResponseData;
+    },
+  },
+  "secu_engagement_osint_username_link": {
+    method: "POST",
+    path: "/engagements/:id/entities/username",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Lege eine username-Entity an, optional an Person hängen, OSINT-Auto-Chain greift",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEngagementOsintUsernameLinkParams;
+      query: SecuEngagementOsintUsernameLinkQuery;
+      body: SecuEngagementOsintUsernameLinkBody;
+      response: SecuEngagementOsintUsernameLinkResponse;
+      responseData: SecuEngagementOsintUsernameLinkResponseData;
+    },
+  },
+  "secu_engagement_osint_phone_link": {
+    method: "POST",
+    path: "/engagements/:id/entities/phone",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Lege eine phone_number-Entity an, optional an Person hängen",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEngagementOsintPhoneLinkParams;
+      query: SecuEngagementOsintPhoneLinkQuery;
+      body: SecuEngagementOsintPhoneLinkBody;
+      response: SecuEngagementOsintPhoneLinkResponse;
+      responseData: SecuEngagementOsintPhoneLinkResponseData;
+    },
+  },
+  "secu_engagement_osint_social_link": {
+    method: "POST",
+    path: "/engagements/:id/entities/social",
+    auth: {"type":"frontend_bearer_http"},
+    meta: {
+      tags: ["secu-engagements"],
+      summary: "Lege eine social_account-Entity an, optional an Person hängen",
+      bodyContentType: "application/json",
+      validated: {"params":true,"query":false,"body":true},
+    },
+    types: null as unknown as {
+      params: SecuEngagementOsintSocialLinkParams;
+      query: SecuEngagementOsintSocialLinkQuery;
+      body: SecuEngagementOsintSocialLinkBody;
+      response: SecuEngagementOsintSocialLinkResponse;
+      responseData: SecuEngagementOsintSocialLinkResponseData;
     },
   },
 } as const;
