@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T21:09:35.385Z
+// Generated at: 2026-05-09T00:12:42.760Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEngagementCreateParams = undefined;
@@ -46,7 +46,7 @@ export type SecuEngagementListQuery = {
   order?: "asc" | "desc";
   search?: string;
   includeArchived?: boolean;
-  kind?: "solo_lab" | "ctf" | "bug_bounty" | "customer_pentest" | "internal";
+  kind?: string;
   ownerUserId?: number;
 };
 export type SecuEngagementListBody = undefined;
@@ -63,6 +63,19 @@ export type SecuEngagementListResponseData = Array<{
   createdAt: string;
   updatedAt: string | null;
   archivedAt: string | null;
+  findingsBySeverity: {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+};
+  primaryDomain: string | null;
+  owner: {
+  id: number;
+  displayName: string;
+  avatarUrl: string | null;
+} | null;
 }>;
 export type SecuEngagementListResponse = import("../types").ApiEnvelope<SecuEngagementListResponseData>;
 
@@ -392,7 +405,7 @@ export const apiRoutes_secu_engagements = {
     auth: {"type":"frontend_bearer_http"},
     meta: {
       tags: ["secu-engagements"],
-      summary: "List engagements",
+      summary: "List engagements (mit findingsBySeverity, primaryDomain, owner-Bundle)",
       validated: {"params":false,"query":true,"body":false},
     },
     types: null as unknown as {

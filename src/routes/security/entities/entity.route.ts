@@ -12,8 +12,9 @@ import {
     entityRelationshipBodySchema,
     entityTagBodySchema,
 } from "./entity.dto";
+import { entityDetailExtendedQuerySchema } from "../global/global.dto";
 import {
-    entityDetailSchema,
+    entityDetailExtendedSchema,
     entityRelationshipSchema,
     entityRelationshipWithEntitiesSchema,
     entitySchema,
@@ -56,13 +57,19 @@ c.get(
 
 c.get(
     "/:id",
-    validate({ params: entityParamsSchema }),
+    validate({ params: entityParamsSchema, query: entityDetailExtendedQuerySchema }),
     contract({
         operationId: "secu_entity_get",
-        summary: "Get entity detail (incl. tags, engagements, relationship-count)",
+        summary:
+            "Get entity detail bundle: tags, engagements (detailed), findings + bySeverity/byStatus, " +
+            "worker_runs + countByStatus + lastSuccessfulAt, authorizations, related entities. " +
+            "Optional ?engagementContext=:id schränkt findings/runs auf ein Engagement ein.",
         auth: { type: "frontend_bearer_http" },
-        request: { params: entityParamsSchema },
-        responses: [{ kind: "json", status: 200, data: entityDetailSchema }, { kind: "json", status: 404, data: noDataSchema }],
+        request: { params: entityParamsSchema, query: entityDetailExtendedQuerySchema },
+        responses: [
+            { kind: "json", status: 200, data: entityDetailExtendedSchema },
+            { kind: "json", status: 404, data: noDataSchema },
+        ],
     }),
     entityController.getDetail.bind(entityController),
 );

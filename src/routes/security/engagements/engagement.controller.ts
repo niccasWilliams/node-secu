@@ -77,7 +77,7 @@ class EngagementController {
         try {
             const q = v<EngagementListQuery>(req, "query");
             const p = normalizePagination(q, { defaultSort: "createdAt", defaultOrder: "desc", defaultLimit: 50 });
-            const rows = await engagementService.list({
+            const rows = await engagementService.listWithStats({
                 includeArchived: q.includeArchived,
                 kind: q.kind,
                 ownerUserId: q.ownerUserId,

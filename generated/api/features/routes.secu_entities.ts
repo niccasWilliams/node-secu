@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T21:27:24.257Z
+// Generated at: 2026-05-08T23:56:25.848Z
 // Run `pnpm run api:generate` to regenerate
 
 export type SecuEntityUpsertParams = undefined;
@@ -50,7 +50,12 @@ export type SecuEntitySearchResponse = import("../types").ApiEnvelope<SecuEntity
 export type SecuEntityGetParams = {
   id: number;
 };
-export type SecuEntityGetQuery = undefined;
+export type SecuEntityGetQuery = {
+  engagementContext?: number;
+  findingsLimit?: number;
+  workerRunsLimit?: number;
+  relatedLimit?: number;
+};
 export type SecuEntityGetBody = undefined;
 export type SecuEntityGetResponseData = {
   id: number;
@@ -67,6 +72,89 @@ export type SecuEntityGetResponseData = {
   notes: string | null;
 }>;
   relationshipCount: number;
+  engagementsDetailed: Array<{
+  engagementId: number;
+  engagementName: string;
+  engagementStatus: "planning" | "active" | "paused" | "completed" | "archived";
+  role: "primary_target" | "in_scope" | "out_of_scope" | "pivot" | "context" | null;
+  notes: string | null;
+  addedAt: string;
+}>;
+  findings: {
+  items: Array<{
+  id: number;
+  engagementId: number;
+  entityId: number | null;
+  workerRunId: number | null;
+  fingerprint: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  category: "dns" | "email_security" | "tls" | "http_headers" | "exposure" | "cms" | "auth" | "injection" | "cve" | "config" | "deps" | "cert" | "phishing" | "leak" | "compliance_imprint";
+  status: "open" | "triaged" | "confirmed" | "false_positive" | "wont_fix" | "fixed";
+  title: string;
+  description: string;
+  rawData: Record<string, any>;
+  recommendation: string | null;
+  cveIds: Array<string>;
+  cvssScore: string | null;
+  triageReason: "irrelevant_legacy" | "compensating_control" | "accepted_risk" | "duplicate" | "manual_review_pending" | "customer_approved" | "scoping_excluded" | "other" | null;
+  triageNote: string | null;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  resolvedBy: number | null;
+  discoveredAt: string;
+}>;
+  bySeverity: Record<string, number>;
+  byStatus: Record<string, number>;
+  total: number;
+};
+  workerRuns: {
+  items: Array<{
+  id: number;
+  playbookRunId: number | null;
+  engagementId: number;
+  entityId: number | null;
+  workerKey: string;
+  status: "pending" | "provisioning" | "running" | "completed" | "failed" | "cancelled" | "skipped";
+  provider: "local" | "hetzner" | "aws" | "digitalocean" | "docker_host" | "tor_proxy";
+  providerInstanceId: string | null;
+  providerRegion: string | null;
+  logsRef: string | null;
+  exitCode: number | null;
+  error: string | null;
+  durationMs: number | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}>;
+  countByStatus: Record<string, number>;
+  lastSuccessfulAt: string | null;
+  total: number;
+};
+  authorizations: Array<{
+  id: number;
+  entityId: number;
+  kind: "own" | "verified_ownership" | "written_consent" | "internal_lab";
+  scope: "passive_only" | "active_safe" | "active_intrusive";
+  proofType: "dns_txt" | "http_file" | "written_contract" | "manual_owner_verification" | "none";
+  proofRef: string | null;
+  verificationToken: string | null;
+  grantedBy: number | null;
+  grantedAt: string;
+  verifiedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedBy: number | null;
+  notes: string | null;
+  createdAt: string;
+}>;
+  relatedEntities: Array<{
+  id: number;
+  canonicalKey: string;
+  displayName: string;
+  kind: "asset_domain" | "asset_subdomain" | "asset_ip" | "asset_host" | "asset_url" | "person" | "organization" | "location" | "credential_ref" | "document" | "email_address" | "username" | "phone_number" | "social_account" | "infrastructure_provider";
+  relationKind: string;
+  relationshipId: number;
+}>;
 };
 export type SecuEntityGetResponse = import("../types").ApiEnvelope<SecuEntityGetResponseData>;
 
@@ -221,8 +309,8 @@ export const apiRoutes_secu_entities = {
     auth: {"type":"frontend_bearer_http"},
     meta: {
       tags: ["secu-entities"],
-      summary: "Get entity detail (incl. tags, engagements, relationship-count)",
-      validated: {"params":true,"query":false,"body":false},
+      summary: "Get entity detail bundle: tags, engagements (detailed), findings + bySeverity/byStatus, worker_runs + countByStatus + lastSuccessfulAt, authorizations, related entities. Optional ?engagementContext=:id schränkt findings/runs auf ein Engagement ein.",
+      validated: {"params":true,"query":true,"body":false},
     },
     types: null as unknown as {
       params: SecuEntityGetParams;

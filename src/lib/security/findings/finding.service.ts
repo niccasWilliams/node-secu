@@ -336,6 +336,194 @@ export const findingService = {
             .where(eq(findings.workerRunId, workerRunId));
         return row?.cnt ?? 0;
     },
+
+    /**
+     * Cross-Engagement-Findings für die globale Triage-Inbox.
+     * Kein engagementId-Pflichtfilter — optional eingrenzbar.
+     * Liefert zusätzlich Aggregations (severity/status/category) damit das
+     * FE-Dashboard ohne Round-Trip Severity-Tiles bauen kann.
+     */
+    async listGlobal(opts?: {
+        engagementIds?: number[];
+        status?: FindingStatus[];
+        severity?: Severity[];
+        category?: FindingCategory[];
+        triageReason?: FindingTriageReason[];
+        workerKey?: string[];
+        entityId?: number;
+        discoveredSince?: Date;
+        cursor?: { at: Date; id: number } | null;
+        limit?: number;
+        sortBy?: "discoveredAt" | "severity" | "status" | "category";
+        order?: "asc" | "desc";
+    }): Promise<{
+        items: Array<Finding & {
+            entity: typeof entities.$inferSelect | null;
+            workerRun: { id: number; workerKey: string; status: string } | null;
+            engagementName: string;
+            entityDisplayName: string | null;
+        }>;
+        nextCursor: { at: Date; id: number } | null;
+        aggregations: {
+            bySeverity: Record<Severity, number>;
+            byStatus: Record<FindingStatus, number>;
+            byCategory: Record<string, number>;
+        };
+    }> {
+        const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+        const conditions: SQL[] = [];
+        if (opts?.engagementIds && opts.engagementIds.length > 0) {
+            conditions.push(sql`${findings.engagementId} = ANY(${opts.engagementIds})`);
+        }
+        if (opts?.status && opts.status.length > 0) {
+            conditions.push(sql`${findings.status} = ANY(${opts.status})`);
+        }
+        if (opts?.severity && opts.severity.length > 0) {
+            conditions.push(sql`${findings.severity} = ANY(${opts.severity})`);
+        }
+        if (opts?.category && opts.category.length > 0) {
+            conditions.push(sql`${findings.category} = ANY(${opts.category})`);
+        }
+        if (opts?.triageReason && opts.triageReason.length > 0) {
+            conditions.push(sql`${findings.triageReason} = ANY(${opts.triageReason})`);
+        }
+        if (opts?.entityId) conditions.push(eq(findings.entityId, opts.entityId));
+        if (opts?.discoveredSince) conditions.push(sql`${findings.discoveredAt} >= ${opts.discoveredSince}`);
+        if (opts?.workerKey && opts.workerKey.length > 0) {
+            conditions.push(sql`${workerRuns.workerKey} = ANY(${opts.workerKey})`);
+        }
+
+        // Cursor (nur für discoveredAt-sort-desc — sortierte Spalten ändern Cursor-Semantik)
+        const sortBy = opts?.sortBy ?? "discoveredAt";
+        const order = opts?.order ?? "desc";
+        if (opts?.cursor && sortBy === "discoveredAt" && order === "desc") {
+            conditions.push(
+                sql`(${findings.discoveredAt} < ${opts.cursor.at} OR (${findings.discoveredAt} = ${opts.cursor.at} AND ${findings.id} < ${opts.cursor.id}))`,
+            );
+        }
+
+        const sortColumn = (() => {
+            switch (sortBy) {
+                case "severity": return findings.severity;
+                case "status": return findings.status;
+                case "category": return findings.category;
+                case "discoveredAt":
+                default: return findings.discoveredAt;
+            }
+        })();
+        const direction = order === "asc" ? asc(sortColumn) : desc(sortColumn);
+
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        const itemsRows = await database
+            .select({
+                finding: findings,
+                entity: entities,
+                workerRun: {
+                    id: workerRuns.id,
+                    workerKey: workerRuns.workerKey,
+                    status: workerRuns.status,
+                },
+                engagementName: engagements.name,
+            })
+            .from(findings)
+            .leftJoin(entities, eq(entities.id, findings.entityId))
+            .leftJoin(workerRuns, eq(workerRuns.id, findings.workerRunId))
+            .leftJoin(engagements, eq(engagements.id, findings.engagementId))
+            .where(whereClause)
+            .orderBy(direction, desc(findings.id))
+            .limit(limit + 1);
+
+        const hasMore = itemsRows.length > limit;
+        const sliced = hasMore ? itemsRows.slice(0, limit) : itemsRows;
+
+        const items = sliced.map((row) => ({
+            ...row.finding,
+            entity: row.entity ?? null,
+            workerRun: row.workerRun?.id ? row.workerRun : null,
+            engagementName: row.engagementName ?? "Unknown",
+            entityDisplayName: row.entity?.displayName ?? null,
+        }));
+
+        let nextCursor: { at: Date; id: number } | null = null;
+        if (hasMore && items.length > 0 && sortBy === "discoveredAt" && order === "desc") {
+            const last = items[items.length - 1];
+            nextCursor = { at: last.discoveredAt, id: last.id };
+        }
+
+        // Aggregations laufen separat parallel — dieselbe WHERE, aber ohne Cursor.
+        const aggConditions = conditions.filter((c) => {
+            const str = String((c as { queryChunks?: unknown }).queryChunks ?? c);
+            // Cursor-Filter rausziehen (heuristisch über discoveredAt + id Kombination)
+            return !str.includes("discovered_at < ");
+        });
+        // Sicherer: Aggregate ohne Cursor erneut bauen.
+        const aggBaseConditions: SQL[] = [];
+        if (opts?.engagementIds && opts.engagementIds.length > 0) {
+            aggBaseConditions.push(sql`${findings.engagementId} = ANY(${opts.engagementIds})`);
+        }
+        if (opts?.status && opts.status.length > 0) {
+            aggBaseConditions.push(sql`${findings.status} = ANY(${opts.status})`);
+        }
+        if (opts?.severity && opts.severity.length > 0) {
+            aggBaseConditions.push(sql`${findings.severity} = ANY(${opts.severity})`);
+        }
+        if (opts?.category && opts.category.length > 0) {
+            aggBaseConditions.push(sql`${findings.category} = ANY(${opts.category})`);
+        }
+        if (opts?.triageReason && opts.triageReason.length > 0) {
+            aggBaseConditions.push(sql`${findings.triageReason} = ANY(${opts.triageReason})`);
+        }
+        if (opts?.entityId) aggBaseConditions.push(eq(findings.entityId, opts.entityId));
+        if (opts?.discoveredSince) aggBaseConditions.push(sql`${findings.discoveredAt} >= ${opts.discoveredSince}`);
+
+        const needsWorkerJoin = opts?.workerKey && opts.workerKey.length > 0;
+        const aggWhere = aggBaseConditions.length > 0 ? and(...aggBaseConditions) : undefined;
+
+        const baseAgg = needsWorkerJoin
+            ? database
+                  .select({
+                      severity: findings.severity,
+                      status: findings.status,
+                      category: findings.category,
+                      cnt: sql<number>`cast(count(*) as int)`,
+                  })
+                  .from(findings)
+                  .leftJoin(workerRuns, eq(workerRuns.id, findings.workerRunId))
+                  .where(
+                      and(
+                          aggWhere,
+                          sql`${workerRuns.workerKey} = ANY(${opts!.workerKey!})`,
+                      )!,
+                  )
+                  .groupBy(findings.severity, findings.status, findings.category)
+            : database
+                  .select({
+                      severity: findings.severity,
+                      status: findings.status,
+                      category: findings.category,
+                      cnt: sql<number>`cast(count(*) as int)`,
+                  })
+                  .from(findings)
+                  .where(aggWhere)
+                  .groupBy(findings.severity, findings.status, findings.category);
+
+        const aggRows = await baseAgg;
+
+        const bySeverity: Record<Severity, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+        const byStatus: Record<FindingStatus, number> = {
+            open: 0, triaged: 0, confirmed: 0, false_positive: 0, wont_fix: 0, fixed: 0,
+        };
+        const byCategory: Record<string, number> = {};
+        for (const r of aggRows) {
+            bySeverity[r.severity] = (bySeverity[r.severity] ?? 0) + r.cnt;
+            byStatus[r.status] = (byStatus[r.status] ?? 0) + r.cnt;
+            byCategory[r.category] = (byCategory[r.category] ?? 0) + r.cnt;
+        }
+
+        void aggConditions; // silenced — kept for diff-readability with future refactors
+        return { items, nextCursor, aggregations: { bySeverity, byStatus, byCategory } };
+    },
 };
 
 async function publishFindingCreated(finding: Finding): Promise<void> {

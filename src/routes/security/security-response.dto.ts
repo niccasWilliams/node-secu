@@ -118,6 +118,26 @@ export const engagementSchema = z.object({
     archivedAt: nullableIsoDate,
 }).strict();
 
+export const engagementSeverityCountsSchema = z.object({
+    critical: z.number().int().nonnegative(),
+    high: z.number().int().nonnegative(),
+    medium: z.number().int().nonnegative(),
+    low: z.number().int().nonnegative(),
+    info: z.number().int().nonnegative(),
+}).strict();
+
+export const engagementOwnerSchema = z.object({
+    id: z.number().int(),
+    displayName: z.string(),
+    avatarUrl: z.string().nullable(),
+}).strict();
+
+export const engagementListItemSchema = engagementSchema.extend({
+    findingsBySeverity: engagementSeverityCountsSchema,
+    primaryDomain: z.string().nullable(),
+    owner: engagementOwnerSchema.nullable(),
+});
+
 export const entitySchema = z.object({
     id: z.number().int(),
     kind: entityKindSchema,
@@ -504,3 +524,149 @@ export const enrichFullResponseSchema = z.object({
         runId: z.number().int(),
     }).strict()),
 }).passthrough();
+
+// ──────────────────────────────────────────────────────────────────────────
+// Cross-Engagement / Global Endpoints (Frontend Intelligence Dashboard)
+// ──────────────────────────────────────────────────────────────────────────
+
+export const findingsBySeveritySchema = z.object({
+    critical: z.number().int(),
+    high: z.number().int(),
+    medium: z.number().int(),
+    low: z.number().int(),
+    info: z.number().int(),
+}).strict();
+
+export const aggregateGraphNodeSchema = z.object({
+    data: z.object({
+        id: z.string(),
+        canonicalKey: z.string(),
+        kind: entityKindSchema,
+        displayName: z.string(),
+        engagementIds: z.array(z.number().int()),
+        entityIds: z.array(z.number().int()),
+        findingsBySeverity: findingsBySeveritySchema,
+        lastSeenAt: isoDate,
+        data: jsonObject,
+    }).strict(),
+}).strict();
+
+export const aggregateGraphEdgeSchema = z.object({
+    data: z.object({
+        id: z.string(),
+        source: z.string(),
+        target: z.string(),
+        kind: z.string(),
+        engagementIds: z.array(z.number().int()),
+    }).strict(),
+}).strict();
+
+export const aggregateGraphSchema = z.object({
+    nodes: z.array(aggregateGraphNodeSchema),
+    edges: z.array(aggregateGraphEdgeSchema),
+    meta: z.object({
+        engagementCount: z.number().int(),
+        nodeCount: z.number().int(),
+        edgeCount: z.number().int(),
+        truncated: z.boolean(),
+        generatedAt: isoDate,
+    }).strict(),
+}).strict();
+
+// ── Activity feed ────────────────────────────────────────────────────────
+
+export const activityKindSchema = z.enum([
+    "worker_run",
+    "finding",
+    "signal_chain",
+    "engagement_status",
+    "playbook_run",
+]);
+
+export const activityEventSchema = z.object({
+    id: z.string(),
+    kind: activityKindSchema,
+    engagementId: z.number().int().nullable(),
+    engagementName: z.string().nullable(),
+    occurredAt: isoDate,
+    severity: severitySchema.optional(),
+    payload: jsonObject,
+}).strict();
+
+export const activityFeedResponseSchema = z.object({
+    events: z.array(activityEventSchema),
+    nextCursor: z.string().nullable(),
+    meta: z.object({
+        totalApproximate: z.number().int(),
+        sinceCovered: nullableIsoDate,
+    }).strict(),
+}).strict();
+
+// ── Cross-engagement findings ────────────────────────────────────────────
+
+export const findingWithCrossContextSchema = findingWithContextSchema.extend({
+    engagementName: z.string(),
+    entityDisplayName: z.string().nullable(),
+});
+
+export const findingAggregationsSchema = z.object({
+    bySeverity: z.record(severitySchema, z.number().int()),
+    byStatus: z.record(findingStatusSchema, z.number().int()),
+    byCategory: z.record(z.string(), z.number().int()),
+}).strict();
+
+export const findingsGlobalResponseSchema = z.object({
+    findings: z.array(findingWithCrossContextSchema),
+    nextCursor: z.string().nullable(),
+    aggregations: findingAggregationsSchema,
+}).strict();
+
+// ── Cross-engagement worker runs ─────────────────────────────────────────
+
+export const workerRunWithContextSchema = workerRunSchema.extend({
+    engagementName: z.string(),
+    entityDisplayName: z.string().nullable(),
+});
+
+export const workerRunsGlobalResponseSchema = z.object({
+    runs: z.array(workerRunWithContextSchema),
+    nextCursor: z.string().nullable(),
+    meta: z.object({
+        runningCount: z.number().int(),
+        pendingCount: z.number().int(),
+    }).strict(),
+}).strict();
+
+// ── Entity-Detail erweitert (Workspace-Side-Panel) ──────────────────────
+
+export const entityDetailExtendedSchema = entityDetailSchema.extend({
+    engagementsDetailed: z.array(z.object({
+        engagementId: z.number().int(),
+        engagementName: z.string(),
+        engagementStatus: engagementStatusSchema,
+        role: engagementEntityRoleSchema.nullable(),
+        notes: z.string().nullable(),
+        addedAt: isoDate,
+    }).strict()),
+    findings: z.object({
+        items: z.array(findingSchema),
+        bySeverity: z.record(severitySchema, z.number().int()),
+        byStatus: z.record(findingStatusSchema, z.number().int()),
+        total: z.number().int(),
+    }).strict(),
+    workerRuns: z.object({
+        items: z.array(workerRunSchema),
+        countByStatus: z.record(workerRunStatusSchema, z.number().int()),
+        lastSuccessfulAt: nullableIsoDate,
+        total: z.number().int(),
+    }).strict(),
+    authorizations: z.array(authorizationSchema),
+    relatedEntities: z.array(z.object({
+        id: z.number().int(),
+        canonicalKey: z.string(),
+        displayName: z.string(),
+        kind: entityKindSchema,
+        relationKind: z.string(),
+        relationshipId: z.number().int(),
+    }).strict()),
+}).strict();

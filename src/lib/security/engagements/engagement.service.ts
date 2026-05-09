@@ -5,12 +5,14 @@
 
 import { and, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { database } from "@/db";
+import { users } from "@/db/schema";
 import {
     artifacts,
     engagementEntities,
     engagements,
     entities,
     entityAuthorizations,
+    findings,
     type Engagement,
     type EngagementEntityRole,
     type EngagementKind,
@@ -22,6 +24,26 @@ import {
     type EntityAuthorization,
 } from "@/db/individual/individual-schema";
 import { entityService } from "../entities/entity.service";
+
+export type EngagementSeverityCounts = {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    info: number;
+};
+
+export type EngagementOwnerSummary = {
+    id: number;
+    displayName: string;
+    avatarUrl: string | null;
+};
+
+export type EngagementListItem = Engagement & {
+    findingsBySeverity: EngagementSeverityCounts;
+    primaryDomain: string | null;
+    owner: EngagementOwnerSummary | null;
+};
 
 function slugify(input: string): string {
     return input
@@ -140,7 +162,7 @@ export const engagementService = {
 
     async list(opts?: {
         includeArchived?: boolean;
-        kind?: EngagementKind;
+        kind?: EngagementKind | EngagementKind[];
         ownerUserId?: number;
         limit?: number;
         offset?: number;
@@ -150,7 +172,11 @@ export const engagementService = {
     }): Promise<Engagement[]> {
         const conditions: SQL[] = [];
         if (!opts?.includeArchived) conditions.push(isNull(engagements.archivedAt));
-        if (opts?.kind) conditions.push(eq(engagements.kind, opts.kind));
+        if (opts?.kind) {
+            const kinds = Array.isArray(opts.kind) ? opts.kind : [opts.kind];
+            if (kinds.length === 1) conditions.push(eq(engagements.kind, kinds[0]));
+            else if (kinds.length > 1) conditions.push(inArray(engagements.kind, kinds));
+        }
         if (opts?.ownerUserId != null) conditions.push(eq(engagements.ownerUserId, opts.ownerUserId));
         if (opts?.search && opts.search.trim()) {
             const term = `%${opts.search.trim()}%`;
@@ -177,6 +203,140 @@ export const engagementService = {
         if (opts?.limit != null) query = query.limit(opts.limit);
         if (opts?.offset != null) query = query.offset(opts.offset);
         return query;
+    },
+
+    /**
+     * Engagement-List angereichert für die Frontend-Übersicht.
+     * Liefert pro Engagement zusätzlich:
+     *   - findingsBySeverity: Zähler offener Findings (status ∈ open/triaged/confirmed)
+     *   - primaryDomain: Anzeigename der `asset_domain`/`asset_subdomain`-Entity mit
+     *                    Rolle `primary_target` (oder erste asset_domain als Fallback)
+     *   - owner: Bundle (id, displayName, avatarUrl) für ownerUserId
+     *
+     * Eine LIST-Page ⇒ vier Queries (Engagements + Severity-Aggregation +
+     * Primary-Domains + Users). Kein N+1.
+     */
+    async listWithStats(opts?: {
+        includeArchived?: boolean;
+        kind?: EngagementKind | EngagementKind[];
+        ownerUserId?: number;
+        limit?: number;
+        offset?: number;
+        sortBy?: "createdAt" | "updatedAt" | "name" | "status";
+        order?: "asc" | "desc";
+        search?: string;
+    }): Promise<EngagementListItem[]> {
+        const rows = await this.list(opts);
+        if (rows.length === 0) return [];
+
+        const engagementIds = rows.map((r) => r.id);
+        const ownerIds = Array.from(
+            new Set(rows.map((r) => r.ownerUserId).filter((id): id is number => id != null)),
+        );
+
+        const [severityRows, primaryRows, ownerRows] = await Promise.all([
+            // Open-Findings pro (engagementId, severity).
+            database
+                .select({
+                    engagementId: findings.engagementId,
+                    severity: findings.severity,
+                    cnt: sql<number>`cast(count(*) as int)`.as("cnt"),
+                })
+                .from(findings)
+                .where(
+                    and(
+                        inArray(findings.engagementId, engagementIds),
+                        inArray(findings.status, ["open", "triaged", "confirmed"]),
+                    ),
+                )
+                .groupBy(findings.engagementId, findings.severity),
+            // Primary-Domain pro Engagement: bevorzugt role=primary_target + kind=asset_domain/asset_subdomain.
+            // Fallback: erste asset_domain/asset_subdomain in beliebiger Rolle.
+            database
+                .select({
+                    engagementId: engagementEntities.engagementId,
+                    role: engagementEntities.role,
+                    addedAt: engagementEntities.addedAt,
+                    entityKind: entities.kind,
+                    displayName: entities.displayName,
+                })
+                .from(engagementEntities)
+                .innerJoin(entities, eq(entities.id, engagementEntities.entityId))
+                .where(
+                    and(
+                        inArray(engagementEntities.engagementId, engagementIds),
+                        inArray(entities.kind, ["asset_domain", "asset_subdomain"]),
+                    ),
+                ),
+            ownerIds.length > 0
+                ? database
+                      .select({
+                          id: users.id,
+                          email: users.email,
+                          firstName: users.firstName,
+                          lastName: users.lastName,
+                          name: users.name,
+                      })
+                      .from(users)
+                      .where(inArray(users.id, ownerIds))
+                : Promise.resolve(
+                      [] as Array<{
+                          id: number;
+                          email: string | null;
+                          firstName: string | null;
+                          lastName: string | null;
+                          name: string | null;
+                      }>,
+                  ),
+        ]);
+
+        const severityByEngagement = new Map<number, EngagementSeverityCounts>();
+        for (const id of engagementIds) {
+            severityByEngagement.set(id, { critical: 0, high: 0, medium: 0, low: 0, info: 0 });
+        }
+        for (const r of severityRows) {
+            const bucket = severityByEngagement.get(r.engagementId);
+            if (!bucket) continue;
+            if (r.severity === "critical" || r.severity === "high" || r.severity === "medium" || r.severity === "low" || r.severity === "info") {
+                bucket[r.severity] = (bucket[r.severity] ?? 0) + r.cnt;
+            }
+        }
+
+        // Pro Engagement: zuerst primary_target+asset_domain, dann primary_target+asset_subdomain,
+        // dann irgendeine asset_domain (älteste zuerst per addedAt für Stabilität).
+        const primaryByEngagement = new Map<number, string>();
+        const sortedPrimary = [...primaryRows].sort((a, b) => {
+            const score = (row: typeof a) => {
+                let s = 0;
+                if (row.role === "primary_target") s += 100;
+                if (row.entityKind === "asset_domain") s += 10;
+                else if (row.entityKind === "asset_subdomain") s += 5;
+                return s;
+            };
+            const diff = score(b) - score(a);
+            if (diff !== 0) return diff;
+            return new Date(a.addedAt).getTime() - new Date(b.addedAt).getTime();
+        });
+        for (const r of sortedPrimary) {
+            if (!primaryByEngagement.has(r.engagementId)) {
+                primaryByEngagement.set(r.engagementId, r.displayName);
+            }
+        }
+
+        const ownerById = new Map<number, EngagementOwnerSummary>();
+        for (const u of ownerRows) {
+            const composed = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+            const displayName = u.name?.trim() || composed || u.email?.trim() || `op#${u.id}`;
+            ownerById.set(u.id, { id: u.id, displayName, avatarUrl: null });
+        }
+
+        return rows.map((row) => ({
+            ...row,
+            findingsBySeverity:
+                severityByEngagement.get(row.id) ?? { critical: 0, high: 0, medium: 0, low: 0, info: 0 },
+            primaryDomain: primaryByEngagement.get(row.id) ?? null,
+            owner: row.ownerUserId != null ? ownerById.get(row.ownerUserId) ?? null : null,
+        }));
     },
 
     async getById(id: number): Promise<Engagement | null> {

@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T21:27:24.263Z
+// Generated at: 2026-05-08T23:56:25.853Z
 // Run `pnpm run api:generate` to regenerate
 
 export * from "./types";
@@ -17,6 +17,7 @@ export * from "./features/routes.secu_catalog";
 export * from "./features/routes.secu_engagements";
 export * from "./features/routes.secu_entities";
 export * from "./features/routes.secu_findings";
+export * from "./features/routes.secu_global";
 export * from "./features/routes.secu_hints";
 export * from "./features/routes.secu_intelligence";
 export * from "./features/routes.secu_playbooks";
@@ -41,6 +42,7 @@ import { apiRoutes_secu_catalog } from "./features/routes.secu_catalog";
 import { apiRoutes_secu_engagements } from "./features/routes.secu_engagements";
 import { apiRoutes_secu_entities } from "./features/routes.secu_entities";
 import { apiRoutes_secu_findings } from "./features/routes.secu_findings";
+import { apiRoutes_secu_global } from "./features/routes.secu_global";
 import { apiRoutes_secu_hints } from "./features/routes.secu_hints";
 import { apiRoutes_secu_intelligence } from "./features/routes.secu_intelligence";
 import { apiRoutes_secu_playbooks } from "./features/routes.secu_playbooks";
@@ -65,6 +67,7 @@ export const apiRoutes = {
   ...apiRoutes_secu_engagements,
   ...apiRoutes_secu_entities,
   ...apiRoutes_secu_findings,
+  ...apiRoutes_secu_global,
   ...apiRoutes_secu_hints,
   ...apiRoutes_secu_intelligence,
   ...apiRoutes_secu_playbooks,

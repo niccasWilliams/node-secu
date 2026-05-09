@@ -21,6 +21,7 @@ import {
     engagementEntityLinkResponseSchema,
     engagementGraphSchema,
     engagementSchema,
+    engagementListItemSchema,
     engagementWithGraphSchema,
     engagementEntityListItemSchema,
     grantAuthorizationResponseSchema,
@@ -55,10 +56,10 @@ c.get(
     validate({ query: engagementListQuerySchema }),
     contract({
         operationId: "secu_engagement_list",
-        summary: "List engagements",
+        summary: "List engagements (mit findingsBySeverity, primaryDomain, owner-Bundle)",
         auth: { type: "frontend_bearer_http" },
         request: { query: engagementListQuerySchema },
-        responses: [{ kind: "json", status: 200, data: engagementSchema.array() }],
+        responses: [{ kind: "json", status: 200, data: engagementListItemSchema.array() }],
     }),
     engagementController.list.bind(engagementController),
 );

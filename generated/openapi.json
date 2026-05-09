@@ -7160,7 +7160,7 @@
         "tags": [
           "secu-engagements"
         ],
-        "summary": "List engagements",
+        "summary": "List engagements (mit findingsBySeverity, primaryDomain, owner-Bundle)",
         "responses": {
           "200": {
             "description": "JSON response",
@@ -7266,6 +7266,83 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "findingsBySeverity": {
+                                "type": "object",
+                                "properties": {
+                                  "critical": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "high": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "medium": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "low": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "info": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  }
+                                },
+                                "required": [
+                                  "critical",
+                                  "high",
+                                  "medium",
+                                  "low",
+                                  "info"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "primaryDomain": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "owner": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer"
+                                      },
+                                      "displayName": {
+                                        "type": "string"
+                                      },
+                                      "avatarUrl": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "displayName",
+                                      "avatarUrl"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
@@ -7280,7 +7357,10 @@
                               "osintMaxHops",
                               "createdAt",
                               "updatedAt",
-                              "archivedAt"
+                              "archivedAt",
+                              "findingsBySeverity",
+                              "primaryDomain",
+                              "owner"
                             ],
                             "additionalProperties": false
                           }
@@ -7402,49 +7482,12 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": [
-                "solo_lab",
-                "ctf",
-                "bug_bounty",
-                "customer_pentest",
-                "internal"
-              ],
+              "maxLength": 256,
               "x-ui": {
-                "label": "Art",
-                "widget": "select",
-                "group": "Allgemein",
-                "options": [
-                  {
-                    "value": "solo_lab",
-                    "label": "Solo-Lab",
-                    "description": "Eigene Test-Infrastruktur",
-                    "color": "neutral"
-                  },
-                  {
-                    "value": "ctf",
-                    "label": "CTF",
-                    "description": "Capture-the-Flag-Challenge",
-                    "color": "info"
-                  },
-                  {
-                    "value": "bug_bounty",
-                    "label": "Bug Bounty",
-                    "description": "Bug-Bounty-Programm",
-                    "color": "info"
-                  },
-                  {
-                    "value": "customer_pentest",
-                    "label": "Kunden-Pentest",
-                    "description": "Beauftragter Pentest",
-                    "color": "success"
-                  },
-                  {
-                    "value": "internal",
-                    "label": "Intern",
-                    "description": "Eigene Infrastruktur",
-                    "color": "neutral"
-                  }
-                ]
+                "label": "Art (CSV)",
+                "widget": "text",
+                "group": "Filter",
+                "help": "Eine oder mehrere Engagement-Arten, kommasepariert."
               }
             }
           },
@@ -10685,7 +10728,7 @@
         "tags": [
           "secu-entities"
         ],
-        "summary": "Get entity detail (incl. tags, engagements, relationship-count)",
+        "summary": "Get entity detail bundle: tags, engagements (detailed), findings + bySeverity/byStatus, worker_runs + countByStatus + lastSuccessfulAt, authorizations, related entities. Optional ?engagementContext=:id schränkt findings/runs auf ein Engagement ein.",
         "responses": {
           "200": {
             "description": "JSON response",
@@ -10796,6 +10839,856 @@
                             },
                             "relationshipCount": {
                               "type": "integer"
+                            },
+                            "engagementsDetailed": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "engagementId": {
+                                    "type": "integer"
+                                  },
+                                  "engagementName": {
+                                    "type": "string"
+                                  },
+                                  "engagementStatus": {
+                                    "type": "string",
+                                    "enum": [
+                                      "planning",
+                                      "active",
+                                      "paused",
+                                      "completed",
+                                      "archived"
+                                    ]
+                                  },
+                                  "role": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "primary_target",
+                                          "in_scope",
+                                          "out_of_scope",
+                                          "pivot",
+                                          "context"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "notes": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "addedAt": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "engagementId",
+                                  "engagementName",
+                                  "engagementStatus",
+                                  "role",
+                                  "notes",
+                                  "addedAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "findings": {
+                              "type": "object",
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer"
+                                      },
+                                      "engagementId": {
+                                        "type": "integer"
+                                      },
+                                      "entityId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "workerRunId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "fingerprint": {
+                                        "type": "string"
+                                      },
+                                      "severity": {
+                                        "type": "string",
+                                        "enum": [
+                                          "critical",
+                                          "high",
+                                          "medium",
+                                          "low",
+                                          "info"
+                                        ],
+                                        "x-ui": {
+                                          "label": "Schweregrad",
+                                          "widget": "select",
+                                          "group": "Filter",
+                                          "options": [
+                                            {
+                                              "value": "critical",
+                                              "label": "Kritisch",
+                                              "color": "danger"
+                                            },
+                                            {
+                                              "value": "high",
+                                              "label": "Hoch",
+                                              "color": "danger"
+                                            },
+                                            {
+                                              "value": "medium",
+                                              "label": "Mittel",
+                                              "color": "warning"
+                                            },
+                                            {
+                                              "value": "low",
+                                              "label": "Niedrig",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "info",
+                                              "label": "Info",
+                                              "color": "neutral"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "category": {
+                                        "type": "string",
+                                        "enum": [
+                                          "dns",
+                                          "email_security",
+                                          "tls",
+                                          "http_headers",
+                                          "exposure",
+                                          "cms",
+                                          "auth",
+                                          "injection",
+                                          "cve",
+                                          "config",
+                                          "deps",
+                                          "cert",
+                                          "phishing",
+                                          "leak",
+                                          "compliance_imprint"
+                                        ],
+                                        "x-ui": {
+                                          "label": "Kategorie",
+                                          "widget": "select",
+                                          "group": "Filter"
+                                        }
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "open",
+                                          "triaged",
+                                          "confirmed",
+                                          "false_positive",
+                                          "wont_fix",
+                                          "fixed"
+                                        ],
+                                        "x-ui": {
+                                          "label": "Status",
+                                          "widget": "select",
+                                          "group": "Triage",
+                                          "options": [
+                                            {
+                                              "value": "open",
+                                              "label": "Offen",
+                                              "color": "warning"
+                                            },
+                                            {
+                                              "value": "triaged",
+                                              "label": "Triagiert",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "confirmed",
+                                              "label": "Bestätigt",
+                                              "color": "danger"
+                                            },
+                                            {
+                                              "value": "false_positive",
+                                              "label": "False-Positive",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "wont_fix",
+                                              "label": "Won't Fix",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "fixed",
+                                              "label": "Behoben",
+                                              "color": "success"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "description": {
+                                        "type": "string"
+                                      },
+                                      "rawData": {
+                                        "type": "object",
+                                        "additionalProperties": {}
+                                      },
+                                      "recommendation": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "cveIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "cvssScore": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "triageReason": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "irrelevant_legacy",
+                                              "compensating_control",
+                                              "accepted_risk",
+                                              "duplicate",
+                                              "manual_review_pending",
+                                              "customer_approved",
+                                              "scoping_excluded",
+                                              "other"
+                                            ],
+                                            "x-ui": {
+                                              "label": "Triage-Grund",
+                                              "widget": "select",
+                                              "group": "Triage",
+                                              "help": "Warum dieser Status?",
+                                              "options": [
+                                                {
+                                                  "value": "irrelevant_legacy",
+                                                  "label": "Irrelevant (Legacy)",
+                                                  "color": "neutral"
+                                                },
+                                                {
+                                                  "value": "compensating_control",
+                                                  "label": "Kompensierende Maßnahme",
+                                                  "color": "info"
+                                                },
+                                                {
+                                                  "value": "accepted_risk",
+                                                  "label": "Akzeptiertes Risiko",
+                                                  "color": "warning"
+                                                },
+                                                {
+                                                  "value": "duplicate",
+                                                  "label": "Duplikat",
+                                                  "color": "neutral"
+                                                },
+                                                {
+                                                  "value": "manual_review_pending",
+                                                  "label": "Manuelle Prüfung läuft",
+                                                  "color": "info"
+                                                },
+                                                {
+                                                  "value": "customer_approved",
+                                                  "label": "Kunden-OK",
+                                                  "color": "success"
+                                                },
+                                                {
+                                                  "value": "scoping_excluded",
+                                                  "label": "Außerhalb Scope",
+                                                  "color": "neutral"
+                                                },
+                                                {
+                                                  "value": "other",
+                                                  "label": "Sonstige",
+                                                  "color": "neutral"
+                                                }
+                                              ]
+                                            }
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "x-ui": {
+                                          "label": "Triage-Grund",
+                                          "widget": "select",
+                                          "group": "Triage",
+                                          "help": "Warum dieser Status?",
+                                          "options": [
+                                            {
+                                              "value": "irrelevant_legacy",
+                                              "label": "Irrelevant (Legacy)",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "compensating_control",
+                                              "label": "Kompensierende Maßnahme",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "accepted_risk",
+                                              "label": "Akzeptiertes Risiko",
+                                              "color": "warning"
+                                            },
+                                            {
+                                              "value": "duplicate",
+                                              "label": "Duplikat",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "manual_review_pending",
+                                              "label": "Manuelle Prüfung läuft",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "customer_approved",
+                                              "label": "Kunden-OK",
+                                              "color": "success"
+                                            },
+                                            {
+                                              "value": "scoping_excluded",
+                                              "label": "Außerhalb Scope",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "other",
+                                              "label": "Sonstige",
+                                              "color": "neutral"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "triageNote": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "resolutionNote": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "resolvedAt": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "resolvedBy": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "discoveredAt": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "engagementId",
+                                      "entityId",
+                                      "workerRunId",
+                                      "fingerprint",
+                                      "severity",
+                                      "category",
+                                      "status",
+                                      "title",
+                                      "description",
+                                      "rawData",
+                                      "recommendation",
+                                      "cveIds",
+                                      "cvssScore",
+                                      "triageReason",
+                                      "triageNote",
+                                      "resolutionNote",
+                                      "resolvedAt",
+                                      "resolvedBy",
+                                      "discoveredAt"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "bySeverity": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "byStatus": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "total": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "items",
+                                "bySeverity",
+                                "byStatus",
+                                "total"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "workerRuns": {
+                              "type": "object",
+                              "properties": {
+                                "items": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "integer"
+                                      },
+                                      "playbookRunId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "engagementId": {
+                                        "type": "integer"
+                                      },
+                                      "entityId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "workerKey": {
+                                        "type": "string"
+                                      },
+                                      "status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "pending",
+                                          "provisioning",
+                                          "running",
+                                          "completed",
+                                          "failed",
+                                          "cancelled",
+                                          "skipped"
+                                        ]
+                                      },
+                                      "provider": {
+                                        "type": "string",
+                                        "enum": [
+                                          "local",
+                                          "hetzner",
+                                          "aws",
+                                          "digitalocean",
+                                          "docker_host",
+                                          "tor_proxy"
+                                        ]
+                                      },
+                                      "providerInstanceId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "providerRegion": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "logsRef": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "exitCode": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "error": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "durationMs": {
+                                        "anyOf": [
+                                          {
+                                            "type": "integer"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "startedAt": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "finishedAt": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "createdAt": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "playbookRunId",
+                                      "engagementId",
+                                      "entityId",
+                                      "workerKey",
+                                      "status",
+                                      "provider",
+                                      "providerInstanceId",
+                                      "providerRegion",
+                                      "logsRef",
+                                      "exitCode",
+                                      "error",
+                                      "durationMs",
+                                      "startedAt",
+                                      "finishedAt",
+                                      "createdAt"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "countByStatus": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "lastSuccessfulAt": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "total": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "items",
+                                "countByStatus",
+                                "lastSuccessfulAt",
+                                "total"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "authorizations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "integer"
+                                  },
+                                  "entityId": {
+                                    "type": "integer"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "own",
+                                      "verified_ownership",
+                                      "written_consent",
+                                      "internal_lab"
+                                    ]
+                                  },
+                                  "scope": {
+                                    "type": "string",
+                                    "enum": [
+                                      "passive_only",
+                                      "active_safe",
+                                      "active_intrusive"
+                                    ]
+                                  },
+                                  "proofType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "dns_txt",
+                                      "http_file",
+                                      "written_contract",
+                                      "manual_owner_verification",
+                                      "none"
+                                    ]
+                                  },
+                                  "proofRef": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "verificationToken": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "grantedBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "grantedAt": {
+                                    "type": "string"
+                                  },
+                                  "verifiedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "expiresAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "revokedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "revokedBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "notes": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "createdAt": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "entityId",
+                                  "kind",
+                                  "scope",
+                                  "proofType",
+                                  "proofRef",
+                                  "verificationToken",
+                                  "grantedBy",
+                                  "grantedAt",
+                                  "verifiedAt",
+                                  "expiresAt",
+                                  "revokedAt",
+                                  "revokedBy",
+                                  "notes",
+                                  "createdAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "relatedEntities": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "integer"
+                                  },
+                                  "canonicalKey": {
+                                    "type": "string"
+                                  },
+                                  "displayName": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "asset_domain",
+                                      "asset_subdomain",
+                                      "asset_ip",
+                                      "asset_host",
+                                      "asset_url",
+                                      "person",
+                                      "organization",
+                                      "location",
+                                      "credential_ref",
+                                      "document",
+                                      "email_address",
+                                      "username",
+                                      "phone_number",
+                                      "social_account",
+                                      "infrastructure_provider"
+                                    ]
+                                  },
+                                  "relationKind": {
+                                    "type": "string"
+                                  },
+                                  "relationshipId": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "canonicalKey",
+                                  "displayName",
+                                  "kind",
+                                  "relationKind",
+                                  "relationshipId"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -10808,7 +11701,12 @@
                             "lastSeenAt",
                             "tags",
                             "engagements",
-                            "relationshipCount"
+                            "relationshipCount",
+                            "engagementsDetailed",
+                            "findings",
+                            "workerRuns",
+                            "authorizations",
+                            "relatedEntities"
                           ],
                           "additionalProperties": false
                         },
@@ -10876,6 +11774,45 @@
             "schema": {
               "type": "integer",
               "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "engagementContext",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "findingsLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "workerRunsLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "relatedLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
             }
           }
         ],
@@ -14353,6 +15290,1612 @@
             "schema": {
               "type": "integer",
               "exclusiveMinimum": 0
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/graph/aggregate": {
+      "get": {
+        "operationId": "secu_graph_aggregate",
+        "tags": [
+          "secu-global"
+        ],
+        "summary": "Cross-Engagement-Aggregat-Graph (canonicalKey-Dedup, Severity-Heatmap, 2000-Node-Cap)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "nodes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "data": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "canonicalKey": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                          "asset_domain",
+                                          "asset_subdomain",
+                                          "asset_ip",
+                                          "asset_host",
+                                          "asset_url",
+                                          "person",
+                                          "organization",
+                                          "location",
+                                          "credential_ref",
+                                          "document",
+                                          "email_address",
+                                          "username",
+                                          "phone_number",
+                                          "social_account",
+                                          "infrastructure_provider"
+                                        ]
+                                      },
+                                      "displayName": {
+                                        "type": "string"
+                                      },
+                                      "engagementIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "entityIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "findingsBySeverity": {
+                                        "type": "object",
+                                        "properties": {
+                                          "critical": {
+                                            "type": "integer"
+                                          },
+                                          "high": {
+                                            "type": "integer"
+                                          },
+                                          "medium": {
+                                            "type": "integer"
+                                          },
+                                          "low": {
+                                            "type": "integer"
+                                          },
+                                          "info": {
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "critical",
+                                          "high",
+                                          "medium",
+                                          "low",
+                                          "info"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "lastSeenAt": {
+                                        "type": "string"
+                                      },
+                                      "data": {
+                                        "type": "object",
+                                        "additionalProperties": {}
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "canonicalKey",
+                                      "kind",
+                                      "displayName",
+                                      "engagementIds",
+                                      "entityIds",
+                                      "findingsBySeverity",
+                                      "lastSeenAt",
+                                      "data"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "data"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "edges": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "data": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string"
+                                      },
+                                      "source": {
+                                        "type": "string"
+                                      },
+                                      "target": {
+                                        "type": "string"
+                                      },
+                                      "kind": {
+                                        "type": "string"
+                                      },
+                                      "engagementIds": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "integer"
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "source",
+                                      "target",
+                                      "kind",
+                                      "engagementIds"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "data"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "meta": {
+                              "type": "object",
+                              "properties": {
+                                "engagementCount": {
+                                  "type": "integer"
+                                },
+                                "nodeCount": {
+                                  "type": "integer"
+                                },
+                                "edgeCount": {
+                                  "type": "integer"
+                                },
+                                "truncated": {
+                                  "type": "boolean"
+                                },
+                                "generatedAt": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "engagementCount",
+                                "nodeCount",
+                                "edgeCount",
+                                "truncated",
+                                "generatedAt"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "nodes",
+                            "edges",
+                            "meta"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "engagements",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512,
+              "x-ui": {
+                "label": "Engagements (CSV)",
+                "widget": "text",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "dedupe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "canonicalKey",
+                "none"
+              ],
+              "x-ui": {
+                "label": "Dedup-Strategie",
+                "widget": "select",
+                "group": "Graph"
+              }
+            }
+          },
+          {
+            "name": "kinds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512,
+              "x-ui": {
+                "label": "Entity-Kinds (CSV)",
+                "widget": "text",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "x-ui": {
+                "label": "Severities (CSV)",
+                "widget": "text",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "x-ui": {
+                "label": "Seit (ISO)",
+                "widget": "datetime",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "nodeLimit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/activity": {
+      "get": {
+        "operationId": "secu_activity_feed",
+        "tags": [
+          "secu-global"
+        ],
+        "summary": "Cross-Engagement Activity-Feed (worker_runs / findings / signal_chains / playbook_runs / status)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "events": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "worker_run",
+                                      "finding",
+                                      "signal_chain",
+                                      "engagement_status",
+                                      "playbook_run"
+                                    ]
+                                  },
+                                  "engagementId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "engagementName": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "occurredAt": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "critical",
+                                      "high",
+                                      "medium",
+                                      "low",
+                                      "info"
+                                    ],
+                                    "x-ui": {
+                                      "label": "Schweregrad",
+                                      "widget": "select",
+                                      "group": "Filter",
+                                      "options": [
+                                        {
+                                          "value": "critical",
+                                          "label": "Kritisch",
+                                          "color": "danger"
+                                        },
+                                        {
+                                          "value": "high",
+                                          "label": "Hoch",
+                                          "color": "danger"
+                                        },
+                                        {
+                                          "value": "medium",
+                                          "label": "Mittel",
+                                          "color": "warning"
+                                        },
+                                        {
+                                          "value": "low",
+                                          "label": "Niedrig",
+                                          "color": "info"
+                                        },
+                                        {
+                                          "value": "info",
+                                          "label": "Info",
+                                          "color": "neutral"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "payload": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "kind",
+                                  "engagementId",
+                                  "engagementName",
+                                  "occurredAt",
+                                  "payload"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "meta": {
+                              "type": "object",
+                              "properties": {
+                                "totalApproximate": {
+                                  "type": "integer"
+                                },
+                                "sinceCovered": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "totalApproximate",
+                                "sinceCovered"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "events",
+                            "nextCursor",
+                            "meta"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "x-ui": {
+                "label": "Seit (ISO)",
+                "widget": "datetime",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "x-ui": {
+                "label": "Seit (ISO)",
+                "widget": "datetime",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "engagements",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "kinds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/findings": {
+      "get": {
+        "operationId": "secu_findings_global",
+        "tags": [
+          "secu-global"
+        ],
+        "summary": "Globale Findings-Inbox über alle Engagements (mit aggregations bySeverity/byStatus/byCategory)",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "findings": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "integer"
+                                  },
+                                  "engagementId": {
+                                    "type": "integer"
+                                  },
+                                  "entityId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "workerRunId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fingerprint": {
+                                    "type": "string"
+                                  },
+                                  "severity": {
+                                    "type": "string",
+                                    "enum": [
+                                      "critical",
+                                      "high",
+                                      "medium",
+                                      "low",
+                                      "info"
+                                    ],
+                                    "x-ui": {
+                                      "label": "Schweregrad",
+                                      "widget": "select",
+                                      "group": "Filter",
+                                      "options": [
+                                        {
+                                          "value": "critical",
+                                          "label": "Kritisch",
+                                          "color": "danger"
+                                        },
+                                        {
+                                          "value": "high",
+                                          "label": "Hoch",
+                                          "color": "danger"
+                                        },
+                                        {
+                                          "value": "medium",
+                                          "label": "Mittel",
+                                          "color": "warning"
+                                        },
+                                        {
+                                          "value": "low",
+                                          "label": "Niedrig",
+                                          "color": "info"
+                                        },
+                                        {
+                                          "value": "info",
+                                          "label": "Info",
+                                          "color": "neutral"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "category": {
+                                    "type": "string",
+                                    "enum": [
+                                      "dns",
+                                      "email_security",
+                                      "tls",
+                                      "http_headers",
+                                      "exposure",
+                                      "cms",
+                                      "auth",
+                                      "injection",
+                                      "cve",
+                                      "config",
+                                      "deps",
+                                      "cert",
+                                      "phishing",
+                                      "leak",
+                                      "compliance_imprint"
+                                    ],
+                                    "x-ui": {
+                                      "label": "Kategorie",
+                                      "widget": "select",
+                                      "group": "Filter"
+                                    }
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "open",
+                                      "triaged",
+                                      "confirmed",
+                                      "false_positive",
+                                      "wont_fix",
+                                      "fixed"
+                                    ],
+                                    "x-ui": {
+                                      "label": "Status",
+                                      "widget": "select",
+                                      "group": "Triage",
+                                      "options": [
+                                        {
+                                          "value": "open",
+                                          "label": "Offen",
+                                          "color": "warning"
+                                        },
+                                        {
+                                          "value": "triaged",
+                                          "label": "Triagiert",
+                                          "color": "info"
+                                        },
+                                        {
+                                          "value": "confirmed",
+                                          "label": "Bestätigt",
+                                          "color": "danger"
+                                        },
+                                        {
+                                          "value": "false_positive",
+                                          "label": "False-Positive",
+                                          "color": "neutral"
+                                        },
+                                        {
+                                          "value": "wont_fix",
+                                          "label": "Won't Fix",
+                                          "color": "neutral"
+                                        },
+                                        {
+                                          "value": "fixed",
+                                          "label": "Behoben",
+                                          "color": "success"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "type": "string"
+                                  },
+                                  "rawData": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                  },
+                                  "recommendation": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "cveIds": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "cvssScore": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "triageReason": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "irrelevant_legacy",
+                                          "compensating_control",
+                                          "accepted_risk",
+                                          "duplicate",
+                                          "manual_review_pending",
+                                          "customer_approved",
+                                          "scoping_excluded",
+                                          "other"
+                                        ],
+                                        "x-ui": {
+                                          "label": "Triage-Grund",
+                                          "widget": "select",
+                                          "group": "Triage",
+                                          "help": "Warum dieser Status?",
+                                          "options": [
+                                            {
+                                              "value": "irrelevant_legacy",
+                                              "label": "Irrelevant (Legacy)",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "compensating_control",
+                                              "label": "Kompensierende Maßnahme",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "accepted_risk",
+                                              "label": "Akzeptiertes Risiko",
+                                              "color": "warning"
+                                            },
+                                            {
+                                              "value": "duplicate",
+                                              "label": "Duplikat",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "manual_review_pending",
+                                              "label": "Manuelle Prüfung läuft",
+                                              "color": "info"
+                                            },
+                                            {
+                                              "value": "customer_approved",
+                                              "label": "Kunden-OK",
+                                              "color": "success"
+                                            },
+                                            {
+                                              "value": "scoping_excluded",
+                                              "label": "Außerhalb Scope",
+                                              "color": "neutral"
+                                            },
+                                            {
+                                              "value": "other",
+                                              "label": "Sonstige",
+                                              "color": "neutral"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "x-ui": {
+                                      "label": "Triage-Grund",
+                                      "widget": "select",
+                                      "group": "Triage",
+                                      "help": "Warum dieser Status?",
+                                      "options": [
+                                        {
+                                          "value": "irrelevant_legacy",
+                                          "label": "Irrelevant (Legacy)",
+                                          "color": "neutral"
+                                        },
+                                        {
+                                          "value": "compensating_control",
+                                          "label": "Kompensierende Maßnahme",
+                                          "color": "info"
+                                        },
+                                        {
+                                          "value": "accepted_risk",
+                                          "label": "Akzeptiertes Risiko",
+                                          "color": "warning"
+                                        },
+                                        {
+                                          "value": "duplicate",
+                                          "label": "Duplikat",
+                                          "color": "neutral"
+                                        },
+                                        {
+                                          "value": "manual_review_pending",
+                                          "label": "Manuelle Prüfung läuft",
+                                          "color": "info"
+                                        },
+                                        {
+                                          "value": "customer_approved",
+                                          "label": "Kunden-OK",
+                                          "color": "success"
+                                        },
+                                        {
+                                          "value": "scoping_excluded",
+                                          "label": "Außerhalb Scope",
+                                          "color": "neutral"
+                                        },
+                                        {
+                                          "value": "other",
+                                          "label": "Sonstige",
+                                          "color": "neutral"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "triageNote": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "resolutionNote": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "resolvedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "resolvedBy": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "discoveredAt": {
+                                    "type": "string"
+                                  },
+                                  "entity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "integer"
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "asset_domain",
+                                              "asset_subdomain",
+                                              "asset_ip",
+                                              "asset_host",
+                                              "asset_url",
+                                              "person",
+                                              "organization",
+                                              "location",
+                                              "credential_ref",
+                                              "document",
+                                              "email_address",
+                                              "username",
+                                              "phone_number",
+                                              "social_account",
+                                              "infrastructure_provider"
+                                            ]
+                                          },
+                                          "displayName": {
+                                            "type": "string"
+                                          },
+                                          "canonicalKey": {
+                                            "type": "string"
+                                          },
+                                          "data": {
+                                            "type": "object",
+                                            "additionalProperties": {}
+                                          },
+                                          "firstSeenAt": {
+                                            "type": "string"
+                                          },
+                                          "lastSeenAt": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "displayName",
+                                          "canonicalKey",
+                                          "data",
+                                          "firstSeenAt",
+                                          "lastSeenAt"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "workerRun": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "id": {
+                                            "type": "integer"
+                                          },
+                                          "workerKey": {
+                                            "type": "string"
+                                          },
+                                          "status": {
+                                            "type": "string",
+                                            "enum": [
+                                              "pending",
+                                              "provisioning",
+                                              "running",
+                                              "completed",
+                                              "failed",
+                                              "cancelled",
+                                              "skipped"
+                                            ]
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "workerKey",
+                                          "status"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "engagementName": {
+                                    "type": "string"
+                                  },
+                                  "entityDisplayName": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "engagementId",
+                                  "entityId",
+                                  "workerRunId",
+                                  "fingerprint",
+                                  "severity",
+                                  "category",
+                                  "status",
+                                  "title",
+                                  "description",
+                                  "rawData",
+                                  "recommendation",
+                                  "cveIds",
+                                  "cvssScore",
+                                  "triageReason",
+                                  "triageNote",
+                                  "resolutionNote",
+                                  "resolvedAt",
+                                  "resolvedBy",
+                                  "discoveredAt",
+                                  "entity",
+                                  "workerRun",
+                                  "engagementName",
+                                  "entityDisplayName"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "aggregations": {
+                              "type": "object",
+                              "properties": {
+                                "bySeverity": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "byStatus": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "byCategory": {
+                                  "type": "object",
+                                  "additionalProperties": {
+                                    "type": "integer"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "bySeverity",
+                                "byStatus",
+                                "byCategory"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "findings",
+                            "nextCursor",
+                            "aggregations"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "engagements",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "triageReason",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "workerKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "entityId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          {
+            "name": "discoveredSince",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "x-ui": {
+                "label": "Seit (ISO)",
+                "widget": "datetime",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        ],
+        "security": [
+          {
+            "frontendBearer": []
+          }
+        ],
+        "x-transport": "http"
+      }
+    },
+    "/workers/runs": {
+      "get": {
+        "operationId": "secu_worker_runs_global",
+        "tags": [
+          "secu-global"
+        ],
+        "summary": "Globale Worker-Run-History inkl. running/pending Counter für Live-Status",
+        "responses": {
+          "200": {
+            "description": "JSON response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "runs": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "integer"
+                                  },
+                                  "playbookRunId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "engagementId": {
+                                    "type": "integer"
+                                  },
+                                  "entityId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "workerKey": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pending",
+                                      "provisioning",
+                                      "running",
+                                      "completed",
+                                      "failed",
+                                      "cancelled",
+                                      "skipped"
+                                    ]
+                                  },
+                                  "provider": {
+                                    "type": "string",
+                                    "enum": [
+                                      "local",
+                                      "hetzner",
+                                      "aws",
+                                      "digitalocean",
+                                      "docker_host",
+                                      "tor_proxy"
+                                    ]
+                                  },
+                                  "providerInstanceId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "providerRegion": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "logsRef": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "exitCode": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "error": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "durationMs": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "startedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "finishedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "createdAt": {
+                                    "type": "string"
+                                  },
+                                  "engagementName": {
+                                    "type": "string"
+                                  },
+                                  "entityDisplayName": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "playbookRunId",
+                                  "engagementId",
+                                  "entityId",
+                                  "workerKey",
+                                  "status",
+                                  "provider",
+                                  "providerInstanceId",
+                                  "providerRegion",
+                                  "logsRef",
+                                  "exitCode",
+                                  "error",
+                                  "durationMs",
+                                  "startedAt",
+                                  "finishedAt",
+                                  "createdAt",
+                                  "engagementName",
+                                  "entityDisplayName"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "nextCursor": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "meta": {
+                              "type": "object",
+                              "properties": {
+                                "runningCount": {
+                                  "type": "integer"
+                                },
+                                "pendingCount": {
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "runningCount",
+                                "pendingCount"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "runs",
+                            "nextCursor",
+                            "meta"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "engagements",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "workerKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "x-ui": {
+                "label": "Seit (ISO)",
+                "widget": "datetime",
+                "group": "Filter"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
             }
           }
         ],

@@ -18,6 +18,7 @@
     "db:reset": "npm run db:clear && npm run db:migrate && npm run db:seed",
     "types:generate": "tsx ./scripts/generate-frontend-types.ts",
     "api:generate": "pnpm run types:generate && tsx ./scripts/generate-api-contract.ts",
+    "api:export": "pnpm run api:generate && tsx ./scripts/api-export.ts",
     "setup": "tsx ./scripts/setup-app.ts",
     "post-sync-fix": "tsx ./scripts/post-sync-fix.ts",
     "build": "tsc -p tsconfig.json && tsc-alias -p tsconfig.json && cp -r public dist/public"

@@ -6,6 +6,7 @@ import catalogRouter from "./routes/security/catalog/catalog.route";
 import engagementRouter from "./routes/security/engagements/engagement.route";
 import entityRouter from "./routes/security/entities/entity.route";
 import findingRouter from "./routes/security/findings/finding.route";
+import globalRouter from "./routes/security/global/global.route";
 import hintRouter from "./routes/security/hints/hint.route";
 import intelligenceRouter from "./routes/security/intelligence/intelligence.route";
 import playbookRouter from "./routes/security/playbooks/playbook.route";
@@ -47,6 +48,10 @@ const registerIndividualRoutes = (app: express.Application) => {
     // Globale Intelligence: cross-engagement Pivots, Tech-Graph,
     // k-Hop-Neighborhood (Lazy-Mindmap-Loading). Pfad /intelligence/...
     app.use("/", intelligenceRouter);
+
+    // Cross-Engagement-Endpoints fürs FE-Intelligence-Dashboard:
+    //   /graph/aggregate   /activity   /findings   /workers/runs
+    app.use("/", globalRouter);
 };
 
 export default registerIndividualRoutes;

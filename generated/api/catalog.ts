@@ -1,5 +1,5 @@
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated at: 2026-05-08T21:27:24.263Z
+// Generated at: 2026-05-08T23:56:25.853Z
 // Run `pnpm run api:generate` to regenerate
 
 export type RouteGroup = { key: string; module: string };
@@ -117,6 +117,10 @@ export const apiGroups = {
   {
     "key": "secu_findings",
     "module": "./features/routes.secu_findings"
+  },
+  {
+    "key": "secu_global",
+    "module": "./features/routes.secu_global"
   },
   {
     "key": "secu_hints",

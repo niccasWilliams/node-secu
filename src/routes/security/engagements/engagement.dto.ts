@@ -140,6 +140,22 @@ export const engagementUpdateBodySchema = z
     })
     .strict();
 
+// Akzeptiert sowohl `?kind=bug_bounty` als auch `?kind=bug_bounty,customer_pentest`.
+// Validiert jedes Element gegen das engagementKind-Enum; ungültige Werte fallen weg.
+const engagementKindCsv = z
+    .string()
+    .max(256)
+    .optional()
+    .transform((v) => {
+        if (!v) return undefined;
+        const parsed = v
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .filter((s): s is z.infer<typeof engagementKind> => engagementKind.safeParse(s).success);
+        return parsed.length === 0 ? undefined : parsed;
+    });
+
 export const engagementListQuerySchema = paginatedQuery({
     sortFields: ["createdAt", "updatedAt", "name", "status"] as const,
     defaultSort: "createdAt",
@@ -150,7 +166,12 @@ export const engagementListQuerySchema = paginatedQuery({
         widget: "checkbox",
         group: "Filter",
     }),
-    kind: engagementKind.optional(),
+    kind: ui(engagementKindCsv, {
+        label: "Art (CSV)",
+        widget: "text",
+        group: "Filter",
+        help: "Eine oder mehrere Engagement-Arten, kommasepariert.",
+    }),
     ownerUserId: z.coerce.number().int().positive().optional(),
 });
 

@@ -63,7 +63,18 @@ class EntityController {
     async getDetail(req: Request, res: Response) {
         try {
             const { id } = v<{ id: number }>(req, "params");
-            const detail = await entityService.getDetail(id);
+            const q = v<{
+                engagementContext?: number;
+                findingsLimit?: number;
+                workerRunsLimit?: number;
+                relatedLimit?: number;
+            }>(req, "query");
+            const detail = await entityService.getDetailExtended(id, {
+                engagementId: q.engagementContext,
+                findingsLimit: q.findingsLimit,
+                workerRunsLimit: q.workerRunsLimit,
+                relatedLimit: q.relatedLimit,
+            });
             if (!detail) return responseHandler(res, 404, "Entity not found");
             return responseHandler(res, 200, undefined, detail);
         } catch (e: any) {

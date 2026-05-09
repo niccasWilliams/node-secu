@@ -9,13 +9,19 @@ import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { database } from "@/db";
 import {
     entities,
+    entityAuthorizations,
     entityRelationships,
     entityTags,
     engagementEntities,
     engagements,
+    findings as findingsTable,
+    workerRuns as workerRunsTable,
     type Entity,
+    type EntityAuthorization,
     type EntityKind,
+    type Finding,
     type NewEntity,
+    type WorkerRun,
 } from "@/db/individual/individual-schema";
 import { buildCanonicalKey, type CanonicalKeyInput } from "./canonical-key";
 import { secuEventBus } from "../rules/event-bus";
@@ -276,6 +282,219 @@ export const entityService = {
             tags: tagRows.map((r) => r.tag),
             engagements: engRows.map((r) => ({ engagementId: r.engagementId, role: r.role, notes: r.notes })),
             relationshipCount: relCountRow[0]?.cnt ?? 0,
+        };
+    },
+
+    /**
+     * Erweiterte Detail-Sicht für das Workspace-Side-Panel:
+     * Findings + Worker-Runs + Authorizations + Related-Entities.
+     * Optional auf ein Engagement eingrenzbar (für den per-Engagement-Tab).
+     */
+    async getDetailExtended(
+        id: number,
+        opts: {
+            engagementId?: number;
+            findingsLimit?: number;
+            workerRunsLimit?: number;
+            relatedLimit?: number;
+        } = {},
+    ): Promise<
+        | (Entity & {
+              tags: string[];
+              engagements: Array<{ engagementId: number; role: string | null; notes: string | null }>;
+              relationshipCount: number;
+              engagementsDetailed: Array<{
+                  engagementId: number;
+                  engagementName: string;
+                  engagementStatus: string;
+                  role: string | null;
+                  notes: string | null;
+                  addedAt: string;
+              }>;
+              findings: {
+                  items: Finding[];
+                  bySeverity: Record<string, number>;
+                  byStatus: Record<string, number>;
+                  total: number;
+              };
+              workerRuns: {
+                  items: WorkerRun[];
+                  countByStatus: Record<string, number>;
+                  lastSuccessfulAt: string | null;
+                  total: number;
+              };
+              authorizations: EntityAuthorization[];
+              relatedEntities: Array<{
+                  id: number;
+                  canonicalKey: string;
+                  displayName: string;
+                  kind: EntityKind;
+                  relationKind: string;
+                  relationshipId: number;
+              }>;
+          })
+        | null
+    > {
+        const base = await this.getDetail(id);
+        if (!base) return null;
+
+        const findingsLimit = Math.min(Math.max(opts.findingsLimit ?? 100, 1), 500);
+        const workerRunsLimit = Math.min(Math.max(opts.workerRunsLimit ?? 50, 1), 200);
+        const relatedLimit = Math.min(Math.max(opts.relatedLimit ?? 100, 1), 500);
+
+        const findingsWhere = opts.engagementId
+            ? and(eq(findingsTable.entityId, id), eq(findingsTable.engagementId, opts.engagementId))
+            : eq(findingsTable.entityId, id);
+
+        const runsWhere = opts.engagementId
+            ? and(eq(workerRunsTable.entityId, id), eq(workerRunsTable.engagementId, opts.engagementId))
+            : eq(workerRunsTable.entityId, id);
+
+        const [
+            engagementsDetailedRows,
+            findingsItems,
+            findingsAgg,
+            runsItems,
+            runsAgg,
+            lastSuccessRow,
+            authzRows,
+            relsRaw,
+        ] = await Promise.all([
+            database
+                .select({
+                    engagementId: engagementEntities.engagementId,
+                    engagementName: engagements.name,
+                    engagementStatus: engagements.status,
+                    role: engagementEntities.role,
+                    notes: engagementEntities.notes,
+                    addedAt: engagementEntities.addedAt,
+                })
+                .from(engagementEntities)
+                .innerJoin(engagements, eq(engagements.id, engagementEntities.engagementId))
+                .where(eq(engagementEntities.entityId, id))
+                .orderBy(desc(engagementEntities.addedAt)),
+            database
+                .select()
+                .from(findingsTable)
+                .where(findingsWhere)
+                .orderBy(desc(findingsTable.discoveredAt))
+                .limit(findingsLimit),
+            database
+                .select({
+                    severity: findingsTable.severity,
+                    status: findingsTable.status,
+                    cnt: sql<number>`cast(count(*) as int)`,
+                })
+                .from(findingsTable)
+                .where(findingsWhere)
+                .groupBy(findingsTable.severity, findingsTable.status),
+            database
+                .select()
+                .from(workerRunsTable)
+                .where(runsWhere)
+                .orderBy(desc(workerRunsTable.createdAt))
+                .limit(workerRunsLimit),
+            database
+                .select({
+                    status: workerRunsTable.status,
+                    cnt: sql<number>`cast(count(*) as int)`,
+                })
+                .from(workerRunsTable)
+                .where(runsWhere)
+                .groupBy(workerRunsTable.status),
+            database
+                .select({ finishedAt: workerRunsTable.finishedAt })
+                .from(workerRunsTable)
+                .where(and(runsWhere, eq(workerRunsTable.status, "completed")))
+                .orderBy(desc(workerRunsTable.finishedAt))
+                .limit(1),
+            database
+                .select()
+                .from(entityAuthorizations)
+                .where(eq(entityAuthorizations.entityId, id))
+                .orderBy(desc(entityAuthorizations.grantedAt)),
+            database
+                .select()
+                .from(entityRelationships)
+                .where(
+                    sql`${entityRelationships.fromEntityId} = ${id} or ${entityRelationships.toEntityId} = ${id}`,
+                )
+                .orderBy(desc(entityRelationships.lastObservedAt))
+                .limit(relatedLimit),
+        ]);
+
+        const otherIds = Array.from(
+            new Set(
+                relsRaw
+                    .map((r) => (r.fromEntityId === id ? r.toEntityId : r.fromEntityId))
+                    .filter((x): x is number => x != null),
+            ),
+        );
+        const relEntityRows = otherIds.length
+            ? await database.select().from(entities).where(inArray(entities.id, otherIds))
+            : [];
+        const byEntityId = new Map(relEntityRows.map((e) => [e.id, e]));
+
+        const bySeverity: Record<string, number> = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+        const byStatus: Record<string, number> = {
+            open: 0, triaged: 0, confirmed: 0, false_positive: 0, wont_fix: 0, fixed: 0,
+        };
+        let totalFindings = 0;
+        for (const r of findingsAgg) {
+            bySeverity[r.severity] = (bySeverity[r.severity] ?? 0) + r.cnt;
+            byStatus[r.status] = (byStatus[r.status] ?? 0) + r.cnt;
+            totalFindings += r.cnt;
+        }
+
+        const countByStatus: Record<string, number> = {
+            pending: 0, provisioning: 0, running: 0, completed: 0, failed: 0, cancelled: 0, skipped: 0,
+        };
+        let totalRuns = 0;
+        for (const r of runsAgg) {
+            countByStatus[r.status] = (countByStatus[r.status] ?? 0) + r.cnt;
+            totalRuns += r.cnt;
+        }
+
+        const relatedEntities = relsRaw
+            .map((r) => {
+                const otherId = r.fromEntityId === id ? r.toEntityId : r.fromEntityId;
+                const other = byEntityId.get(otherId);
+                if (!other) return null;
+                return {
+                    id: other.id,
+                    canonicalKey: other.canonicalKey,
+                    displayName: other.displayName,
+                    kind: other.kind,
+                    relationKind: r.kind,
+                    relationshipId: r.id,
+                };
+            })
+            .filter((x): x is NonNullable<typeof x> => x != null);
+
+        return {
+            ...base,
+            engagementsDetailed: engagementsDetailedRows.map((r) => ({
+                engagementId: r.engagementId,
+                engagementName: r.engagementName,
+                engagementStatus: r.engagementStatus,
+                role: r.role,
+                notes: r.notes,
+                addedAt: r.addedAt.toISOString(),
+            })),
+            findings: {
+                items: findingsItems,
+                bySeverity,
+                byStatus,
+                total: totalFindings,
+            },
+            workerRuns: {
+                items: runsItems,
+                countByStatus,
+                lastSuccessfulAt: lastSuccessRow[0]?.finishedAt?.toISOString() ?? null,
+                total: totalRuns,
+            },
+            authorizations: authzRows,
+            relatedEntities,
         };
     },
 
