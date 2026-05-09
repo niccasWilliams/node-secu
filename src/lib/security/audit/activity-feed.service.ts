@@ -7,7 +7,7 @@
 // Pagination: keyset über (occurredAt desc, id desc). Cursor ist das
 // base64-encodierte JSON `{ at: ISO, id: number }` des letzten Events.
 
-import { and, desc, eq, gte, inArray, lt, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { database } from "@/db";
 import {
     engagements,
@@ -74,34 +74,19 @@ export const activityFeedService = {
         // einfacher als ein UNION-ALL+row_number-Konstrukt und schnell genug für FE-Polling.
         const fetchLimit = limit * 2 + 50;
 
-        const cursorOlderThan = (col: AnyColumn, idCol: AnyColumn): SQL | undefined => {
-            if (!opts.cursor) return undefined;
-            // (occurredAt < cursor.at) OR (occurredAt = cursor.at AND id < cursor.id)
-            return or(
-                lt(col, opts.cursor.at),
-                and(eq(col, opts.cursor.at), lt(idCol, opts.cursor.id)),
-            );
-        };
-
         const tasks: Array<Promise<ActivityEvent[]>> = [];
 
         if (kinds.has("worker_run")) {
             const ts = workerRuns.finishedAt;
             const conditions: SQL[] = [
-                gte(sql`coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt})`, since),
-                lt(sql`coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt})`, until),
+                sql`coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt}) >= ${since.toISOString()}::timestamptz`,
+                sql`coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt}) < ${until.toISOString()}::timestamptz`,
             ];
             if (engFilter) conditions.push(inArray(workerRuns.engagementId, engFilter));
-            // cursor: nur über finishedAt ≈ workerRuns.id-Tiebreaker
             if (opts.cursor) {
+                const at = opts.cursor.at.toISOString();
                 conditions.push(
-                    or(
-                        lt(sql`coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt})`, opts.cursor.at),
-                        and(
-                            eq(sql`coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt})`, opts.cursor.at),
-                            lt(workerRuns.id, opts.cursor.id),
-                        ),
-                    )!,
+                    sql`(coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt}) < ${at}::timestamptz OR (coalesce(${workerRuns.finishedAt}, ${workerRuns.createdAt}) = ${at}::timestamptz AND ${workerRuns.id} < ${opts.cursor.id}))`,
                 );
             }
             tasks.push(
@@ -147,11 +132,14 @@ export const activityFeedService = {
         }
 
         if (kinds.has("finding")) {
-            const conditions: SQL[] = [gte(findings.discoveredAt, since), lt(findings.discoveredAt, until)];
+            const conditions: SQL[] = [
+                sql`${findings.discoveredAt} >= ${since.toISOString()}::timestamptz`,
+                sql`${findings.discoveredAt} < ${until.toISOString()}::timestamptz`,
+            ];
             if (engFilter) conditions.push(inArray(findings.engagementId, engFilter));
             if (opts.cursor) {
-                const c = cursorOlderThan(findings.discoveredAt, findings.id);
-                if (c) conditions.push(c);
+                const at = opts.cursor.at.toISOString();
+                conditions.push(sql`(${findings.discoveredAt} < ${at}::timestamptz OR (${findings.discoveredAt} = ${at}::timestamptz AND ${findings.id} < ${opts.cursor.id}))`);
             }
             tasks.push(
                 database
@@ -197,13 +185,13 @@ export const activityFeedService = {
 
         if (kinds.has("signal_chain")) {
             const conditions: SQL[] = [
-                gte(secuSignalChainLog.startedAt, since),
-                lt(secuSignalChainLog.startedAt, until),
+                sql`${secuSignalChainLog.startedAt} >= ${since.toISOString()}::timestamptz`,
+                sql`${secuSignalChainLog.startedAt} < ${until.toISOString()}::timestamptz`,
             ];
             if (engFilter) conditions.push(inArray(secuSignalChainLog.engagementId, engFilter));
             if (opts.cursor) {
-                const c = cursorOlderThan(secuSignalChainLog.startedAt, secuSignalChainLog.id);
-                if (c) conditions.push(c);
+                const at = opts.cursor.at.toISOString();
+                conditions.push(sql`(${secuSignalChainLog.startedAt} < ${at}::timestamptz OR (${secuSignalChainLog.startedAt} = ${at}::timestamptz AND ${secuSignalChainLog.id} < ${opts.cursor.id}))`);
             }
             tasks.push(
                 database
@@ -247,14 +235,14 @@ export const activityFeedService = {
             // mehrere ein (engagement.status, engagement.archive, engagement.create).
             const watched = ["engagement.status_change", "engagement.archive", "engagement.create", "engagement.update"];
             const conditions: SQL[] = [
-                gte(securityAuditLog.createdAt, since),
-                lt(securityAuditLog.createdAt, until),
+                sql`${securityAuditLog.createdAt} >= ${since.toISOString()}::timestamptz`,
+                sql`${securityAuditLog.createdAt} < ${until.toISOString()}::timestamptz`,
                 inArray(securityAuditLog.action, watched),
             ];
             if (engFilter) conditions.push(inArray(securityAuditLog.engagementId, engFilter));
             if (opts.cursor) {
-                const c = cursorOlderThan(securityAuditLog.createdAt, securityAuditLog.id);
-                if (c) conditions.push(c);
+                const at = opts.cursor.at.toISOString();
+                conditions.push(sql`(${securityAuditLog.createdAt} < ${at}::timestamptz OR (${securityAuditLog.createdAt} = ${at}::timestamptz AND ${securityAuditLog.id} < ${opts.cursor.id}))`);
             }
             tasks.push(
                 database
@@ -292,19 +280,14 @@ export const activityFeedService = {
         if (kinds.has("playbook_run")) {
             const ts = playbookRuns.finishedAt;
             const conditions: SQL[] = [
-                gte(sql`coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt})`, since),
-                lt(sql`coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt})`, until),
+                sql`coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt}) >= ${since.toISOString()}::timestamptz`,
+                sql`coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt}) < ${until.toISOString()}::timestamptz`,
             ];
             if (engFilter) conditions.push(inArray(playbookRuns.engagementId, engFilter));
             if (opts.cursor) {
+                const at = opts.cursor.at.toISOString();
                 conditions.push(
-                    or(
-                        lt(sql`coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt})`, opts.cursor.at),
-                        and(
-                            eq(sql`coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt})`, opts.cursor.at),
-                            lt(playbookRuns.id, opts.cursor.id),
-                        ),
-                    )!,
+                    sql`(coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt}) < ${at}::timestamptz OR (coalesce(${playbookRuns.finishedAt}, ${playbookRuns.createdAt}) = ${at}::timestamptz AND ${playbookRuns.id} < ${opts.cursor.id}))`,
                 );
             }
             tasks.push(
